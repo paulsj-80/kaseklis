@@ -292,7 +292,8 @@ char* get_item_from(struct OccFile** last0, struct KlsItem* item0,
         }
 
         assert(occ_pos >= item.occ.jumpback);
-        occ_pos = occ_pos - (item.occ.jumpback > 0 ? item.occ.jumpback : 1);
+        occ_pos = occ_pos - (item.occ.jumpback > 0 ? 
+                             item.occ.jumpback : 1);
         last_last = p;
     }
 
@@ -399,7 +400,11 @@ void dump_index_for(const char* word, uint64_t occ_pos)
             if (fpos < curr_file_size)
             {
                 char* line = curr_file + fpos;
-                printf("%s:%lu %s\n", fname, item.occ.line_number, line);
+                if (strlen(line) > MAX_DISPLAYABLE_LINE_LENGTH)
+                    printf("LONG %s:%lu\n", fname, item.occ.line_number);
+                else
+                    printf("%s:%lu %s\n", fname, item.occ.line_number, 
+                           line);
             }
             else
             {
