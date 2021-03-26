@@ -361,7 +361,7 @@ void dump_index_for(const char* word, uint64_t occ_pos)
     {
         char* fname = get_item_from(&last, &item, files_list, occ_pos,
                                     &is_binary);
-        if ((!curr_file && !is_binary) || strcmp(curr_fname, fname) != 0)
+        if (!curr_fname || strcmp(curr_fname, fname) != 0)
         {
             if (curr_file) 
                 free(curr_file);
