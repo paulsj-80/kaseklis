@@ -2,3 +2,4 @@
 *.o
 src/.kaseklis
 src/test
+src/core
