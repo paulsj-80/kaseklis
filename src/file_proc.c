@@ -5,8 +5,6 @@
 #include "utils.h"
 #include "storage.h"
 
-#define MAX_WORD_LEN 0xffff
-
 struct KlsFileProcessor 
 {
     char curr_word[MAX_WORD_LEN];

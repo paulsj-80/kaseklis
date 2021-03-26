@@ -428,8 +428,8 @@ void dump_index_for(const char* word, uint64_t occ_pos)
 
 void kls_dump_index_for(const char* word)
 {
-    char buff[1024];
-    char buff2[1024];
+    char buff[READ_WORD_BUFF_SIZE];
+    char buff2[MAX_WORD_LEN + 1];
     uint8_t buff3[sizeof(KlsItemCompressed)];
 
     FILE* f = fopen(words_file, "r");
@@ -439,7 +439,7 @@ void kls_dump_index_for(const char* word)
     int part = 0;
     int found = 0;
 
-    while (!found && (c = fread(buff, 1, 1024, f)) > 0)
+    while (!found && (c = fread(buff, 1, READ_WORD_BUFF_SIZE, f)) > 0)
     {
         for (int i = 0; i < c; i++) 
         {
