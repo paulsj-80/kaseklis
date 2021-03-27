@@ -117,12 +117,15 @@ int kls_uncompress_item(KlsItemCompressed item, struct KlsItem* res)
         break;
     case KLS_ITEM_OCC_0_30_30:
         kls_uncompress_bitwise(0, 30, 30, item, res);
+        res->occ.jumpback = 1;
         break;
     case KLS_ITEM_OCC_0_16_44:
         kls_uncompress_bitwise(0, 16, 44, item, res);
+        res->occ.jumpback = 1;
         break;
     case KLS_ITEM_OCC_0_44_16:
         kls_uncompress_bitwise(0, 44, 16, item, res);
+        res->occ.jumpback = 1;
         break;
     }
     return 0;

@@ -292,8 +292,7 @@ char* get_item_from(struct OccFile** last0, struct KlsItem* item0,
         }
 
         assert(occ_pos >= item.occ.jumpback);
-        occ_pos = occ_pos - (item.occ.jumpback > 0 ? 
-                             item.occ.jumpback : 1);
+        occ_pos -= item.occ.jumpback;
         last_last = p;
     }
 
