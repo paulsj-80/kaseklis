@@ -9,7 +9,6 @@
 #include "utils.h"
 
 
-
 void kaseklis_flags(const char *name, 
                     bool* is_kaseklis, 
                     bool* has_it, 
@@ -32,7 +31,8 @@ void kaseklis_flags(const char *name,
     int rc = snprintf(path, FNAME_LEN, "%s%s", name, kls_ut_subdir);
     PATH_POSTPRINT_CHECK(path, name, rc);
 
-    if (opendir(path))
+    DIR* dir = opendir(path);
+    if (dir)
     {
         *has_it = 1;
         rc = snprintf(path, FNAME_LEN, "%s%s%s", name, kls_ut_subdir,
@@ -41,13 +41,11 @@ void kaseklis_flags(const char *name,
 
         *is_ignored = opendir(path) ? 1 : 0;
     }
+    closedir(dir);
 }
 
 void kls_wr_walk(const char* name, bool is_root)
 {
-    DIR *dir = opendir(name);
-    KLS_IO_CHECK(dir, "cannot open folder %s", name);
-
     bool is_kaseklis, has_kaseklis, is_ignored;
     kaseklis_flags(name, &is_kaseklis, &has_kaseklis, &is_ignored);
 
@@ -67,6 +65,9 @@ void kls_wr_walk(const char* name, bool is_root)
     KLS_CHECK(!is_root || !is_ignored, BAD_FILE_OBJECT, 
               "root folder %s contains ignored", name)
 
+    DIR *dir = opendir(name);
+    KLS_IO_CHECK(dir, "cannot open folder %s", name);
+        
     char path[FNAME_LEN];
     struct dirent *entry;
     while ((entry = readdir(dir)) != NULL) 
