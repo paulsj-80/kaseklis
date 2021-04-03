@@ -1,0 +1,143 @@
+--- general stuff
+KLS01000 indexer is for developers
+KLS01001 indexer is for projects with source files in multiple 
+         programming languages
+KLS01002 index data for a folder is stored in .kaseklis folder; 
+         containing folder is considered root for a certain indexing /
+         retrieving call
+KLS01003 too long words are not interesting (implication of KLS01000)
+KLS01004 too long lines are not interesting (implication of KLS01000)
+KLS01005 binary files: enough to know they contain a word (implication 
+         of KLS01000)
+KLS01006 too large files: could be omitted entirely, useless to index 
+         (implication of KLS01000)
+KLS01007 files are expected to change (implication of KLS01000)
+KLS01008 some folders need to be reindexed frequently (implication of 
+         KLS01000, KLS01007)
+KLS01009 indexing should be fast, but quick retrieving is even more 
+         important (implication of KLS01000, KLS01001)
+KLS01010 file extensions may not be used to determine their type
+KLS01011 two operations: index and get
+KLS01012 index files should be kept small, but it is not main priority, 
+         as far as it doesn't affect performance too much (as per 
+         KLS01009)
+KLS01013 code and interface should be simple to allow customizations 
+         (as per KLS01000)
+
+--- definitions
+KLS02000 letters are 'a'-'z' or 'A'-'Z'
+KLS02001 underline is '_'
+KLS02002 numbers are '0'-'9'
+KLS02003 word starts with letter or underline
+KLS02004 word may contain letters, underlines and numbers
+KLS02005 word ends with EOF or any character which is not letter, 
+         underline or number
+KLS02006 line is a string, which ends with '\n' and starts at the 
+         beginning of file or ending of another line
+KLS02007 binary file is a file containing null character or having more
+         than 10% of characters which are not ASCII 32-126, 9, 10, 13
+KLS02008 large file is file which is larger than 1Mb
+KLS02009 occurence is a data item, denoting a word as being inside in a
+         certain file
+KLS02010 root folder is current working directory, where kaseklis 
+         indexing has been performed; it contains folder .kaseklis
+KLS02011 text file is any file which is not binary file
+
+--- files in .kaseklis folder
+KLS03000 indexing.log contains information about indexing, including
+         mentions of files not indexed and some statistics about data
+         structures, built in the process of indexing
+KLS03001 files_file0.dat contains table; each item contains reference to
+         last occurence id inside this file, and offset in 
+         files_file1.dat, where file name can be found
+KLS03002 files_file1.dat contains file names, relative to root folder
+KLS03003 words0.dat contains table, each entry is offset inside 
+         words1.dat; ordering is according to one in hash table, which 
+         is created during indexing
+KLS03004 words1.dat contains hash table buckets in form of "lines"; words
+         themselves are inlined; each word is grouped together with
+         occurence id, which is first occurence in chain (see KLS04002)
+KLS03005 occurence files (occurences.0.dat, occurences.1.dat, ...) 
+         contain occurences; each item is just previous occurence id; 
+         its meaning comes from its id (expressed as position), put 
+         together with file data
+KLS03006 all occurence files are the same size, which allows to calculate
+         absolute occurence id from a position inside it together with
+         file index N (as in occurences.N.dat)
+KLS03007 if .kaseklis folder contains file named "ignored", containing
+         subfolder will be ignored silently, both for indexing and 
+         retrieval
+KLS03008 if .kaseklis folder is inside a subfolder, relative to root
+         (KLS01002), then that subfolder is considered kaseklis-nested
+KLS03009 kaseklis-nested folder is ignored during indexing (see
+         KLS03007)
+KLS03010 kaseklis-nested folder is processed with a nested command line
+         call, when retrieving; if it is empty, it is ignored with a
+         warning (see KLS03007)
+KLS03011 all kaseklis-nested folders' names are collected during indexing
+         and stored in nested.txt (one name per line)
+KLS03012 index.log and therefore all stderr output should be kept short,
+         for better performance
+
+--- data invariances
+KLS04000 one occurence per word in file, even if there are multiple 
+         "real" occurences in that file
+KLS04001 occurence files are formed item by item, while indexer walks all
+         files
+KLS04002 each occurence item refers to previous in word's chain; word
+         itself refers to last element in chain (KLS03005)
+KLS04003 when retrieving, chain is output from end to beginning, thus
+         line numbers are shrinking
+KLS04004 file visit order is not specified
+KLS04005 last occurence id for a file is growing inside file list 
+         (KLS03001)
+KLS04006 name offset of a file is growing inside file list (KLS03001)
+KLS04007 hash table size is hardcoded
+KLS04008 words0.dat is constant size (KLS04007)
+
+--- general algorithm + size specs
+KLS05000 occurence id, file offset, word bucket offset - all are 
+         uint32_t; expectation is that even for large projects this 
+         number won't get exceeded (because of KLS01003, KLS01006)
+KLS05001 during indexing it is checked if numbers (KLS05000) don't 
+         exceed their allowed max value; if that happens, system exits
+KLS05002 number of reads should be reduced as much as possible (KLS01009)
+KLS05003 IO subsystem of the OS reads data in chunks and caches them, 
+         which should be used to reduce number of reads (KLS01009)
+KLS05004 when indexing, data is stored in fixed size hash table
+KLS05005 during indexing, various stats are collected for KLS03000
+KLS05006 during indexing and retrieval, any serious error results in
+         termination of program with appropriate error message and exit
+         code
+KLS05007 as indexing is IO bound and files are normally expected to be
+         on the same medium, multiple threads are not used
+KLS05008 during indexing, occurence files are dumped to hdd one by one, 
+         once they are full
+KLS05009 only first 30 characters of a word are significant when indexing
+         (KLS01000, KLS01003)
+KLS05010 large files are not indexed (KLS01006, KLS02008)
+KLS05011 words with size less than 2 are ignored, both when indexing and
+         when retrieving
+KLS05012 file absolute name size cannot exceed 4096
+
+--- output format when retrieving
+KLS06000 for binary files it is just notification, that file contains a
+         word in question (KLS01005)
+KLS06001 for text files it is name of file, line number, line contents
+         which is displayed for each occurence
+KLS06002 if line is longer than 4096 characters, it is not shown entirely
+KLS06003 only first 30 characters of word to retrieve are significant
+         (KLS05009)
+KLS06004 successful indexing log contains some header data, then data
+         produced during indexing process, then some statistics; idea is
+         to have information available in case of premature exit
+
+--- error logs
+KLS07000 indexing log is both sent to stderr and saved into 
+         .kaseklis/indexing.log
+KLS07001 each attempt to index rewrites previous indexing.log file
+
+--- code conventions
+KLS08000 public functions are named in form of kls_<module>_<fname>, for
+         example, kls_fp_process()
+

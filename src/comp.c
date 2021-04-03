@@ -3,6 +3,8 @@
 #include <string.h>
 #include "comp.h"
 
+/* TODO: remove file
+
 
 #define KLS_COMPRESSED_WIDTH 64
 #define KLS_COMPRESSED_TYPE_WIDTH 4
@@ -201,3 +203,4 @@ int kls_compress_file_start(uint32_t file_index,
     item.kfs.file_index = file_index;
     return kls_compress_item(item, res);
 }
+*/

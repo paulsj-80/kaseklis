@@ -10,8 +10,7 @@
 #include "utils.h"
 #include "walker.h"
 #include "storage.h"
-#include "error_codes.h"
-
+#include "exit_codes.h"
 
 void kls_print_welcome()
 {
@@ -28,16 +27,22 @@ enum KlsCommand
     KLS_COMMAND_GET
 };
 
-void kls_do_index()
+void cmd_index()
 {
-    kls_walk(kls_get_base_dir());
-    kls_finish_storage(1);
+    kls_wr_walk(kls_st_get_base_dir(), 1);
+    kls_st_finish(1);
 }
 
-void kls_do_get(const char* w)
+void cmd_get(const char* w)
 {
-    kls_dump_index_for(w);
-    kls_finish_storage(0);
+    kls_st_dump_index_for(w);
+    kls_st_finish(0);
+}
+
+void exit_bad_usage()
+{
+    kls_print_welcome();
+    exit(EX_USAGE);
 }
 
 int main(int argc, char** arg)
@@ -48,61 +53,48 @@ int main(int argc, char** arg)
     char* word = 0;
     {
         if (argc < 2)
-        {
-            kls_print_welcome();
-            exit(EX_USAGE);
-        }
+            exit_bad_usage();
 
         if (strcmp(arg[1], "index") == 0)
         {
             if (argc > 2) 
-            {
-                kls_print_welcome();
-                exit(EX_USAGE);
-            }
+                exit_bad_usage();
             write_mode = 1;
             cmd = KLS_COMMAND_INDEX;
         }
         else if (strcmp(arg[1], "get") == 0)
         {
             if (argc != 3) 
-            {
-                kls_print_welcome();
-                exit(EX_USAGE);
-            }
+                exit_bad_usage();
             cmd = KLS_COMMAND_GET;
             word = arg[2];
+            KLS_CHECK(strlen(word) > 1, EX_USAGE, 
+                      "word length should exceed 1");
         }
         else
-        {
-            kls_print_welcome();
-            exit(EX_USAGE);
-        }
+            exit_bad_usage();
     }
 
     {
-        char base_dir[1024];
-        char* bd = getcwd(base_dir, 1024);
+        char base_dir[FNAME_LEN];
+        char* bd = getcwd(base_dir, FNAME_LEN);
 
-        int rr = kls_init_storage(base_dir, write_mode);
-        if (rr)
-        {
-            LOG("e: couldn't init storage, ec = %d\n", rr);
-            exit(EX_IOERR);
-        }
+        KLS_IO_CHECK(bd, "cannot get current working directory");
+        kls_st_init(base_dir, write_mode);
     }
 
     {
         switch (cmd)
         {
         case KLS_COMMAND_UNKNOWN:
-            LOG("e: unknown command\n");
+            LOGE("unknown command");
+            exit(EX_USAGE);
             break;
         case KLS_COMMAND_INDEX:
-            kls_do_index();
+            cmd_index();
             break;
         case KLS_COMMAND_GET:
-            kls_do_get(word);
+            cmd_get(word);
             break;
         }
     }

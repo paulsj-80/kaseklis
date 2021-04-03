@@ -1,6 +1,7 @@
 #ifndef KLS_COMP_H
 #define KLS_COMP_H
 
+/* TODO: remove file
 #include <stdint.h>
 
 
@@ -54,5 +55,5 @@ int kls_compress_file_start(uint32_t file_index,
 
 int kls_uncompress_item(KlsItemCompressed item, struct KlsItem* res);
 
-
+*/
 #endif

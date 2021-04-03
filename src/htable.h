@@ -2,30 +2,49 @@
 #define HTABLE_H
 
 #include <stdint.h>
+#include "utils.h"
 
-struct KlsHtItem 
+struct t_kls_ht_item
 {
-    struct KlsHtItem* next;
+    struct t_kls_ht_item* next;
     char* id;
-    uint64_t occ_pos;
+    t_occ_id occ_pos;
 };
 
-struct KlsHtContext
+struct t_kls_ht_item_0
 {
-    struct KlsHtItem* items;
-    uint32_t size;
-    uint64_t collisions;
+    struct t_kls_ht_item item;
+    t_bucket_size bucket_size;
 };
 
-int kls_create_ht(struct KlsHtContext* ht, uint32_t size);
-int kls_write_ht(struct KlsHtContext* ht, const char* file_name);
-int kls_destroy_ht(struct KlsHtContext* ht);
-struct KlsHtItem* kls_get(struct KlsHtContext* ht, const char* id);
-int kls_put(struct KlsHtContext* ht, const char* id, uint64_t occ_pos, 
-            uint64_t* prev_occ_pos);
+struct t_kls_ht_context
+{
+    struct t_kls_ht_item_0* items;
+    t_hash size;
 
-void kls_ht_dump(struct KlsHtContext* ht, int omit_empty, 
-                 int collision_number_only);
+    // stats
+    uint64_t put_count;
+};
+
+void kls_ht_create(struct t_kls_ht_context* ht, t_hash size);
+void kls_ht_destroy(struct t_kls_ht_context* ht);
+
+void kls_ht_dump(struct t_kls_ht_context* ht, bool omit_empty);
+void kls_ht_write(struct t_kls_ht_context* ht, 
+                  const char* file_name0,
+                  const char* file_name1);
+void kls_ht_put(struct t_kls_ht_context* ht, const char* id, 
+                t_occ_id occ_pos, t_occ_id* prev_occ_pos);
+struct t_kls_ht_item* kls_ht_get(struct t_kls_ht_context* ht, 
+                                 const char* id);
+
+void kls_ht_dump_stats(struct t_kls_ht_context* ht);
+
+bool kls_ht_get_occ_id(char* word,
+                       const char* file_name0,
+                       const char* file_name1,
+                       t_occ_id* res);
+
 
 
 #endif

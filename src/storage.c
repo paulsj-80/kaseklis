@@ -2,63 +2,45 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 #include <sys/stat.h>
-#include "utils.h"
 #include "htable.h"
 #include "comp.h"
-#include "error_codes.h"
+#include "exit_codes.h"
 
-static const char* kls_subdir = "/.kaseklis";
-#define OCC_FILE_ITEM_COUNT 100000
+
+#define OCC_FILE_ITEM_COUNT 1024 * 128
 #define HT_SIZE 1024 * 1024
 
+#define FILES_FILE0_ITEM_SIZE (sizeof(t_file_id) + 1 + sizeof(t_occ_id))
+
 static char* base_dir = 0;
-static int base_dir_len = 0;
+static size_t base_dir_len = 0;
 static char* kls_dir = 0;
 
-static char* words_file = 0;
-static char* files_file = 0;
+static char* words_file0 = 0;
+static char* words_file1 = 0;
+static char* files_file0 = 0;
+static char* files_file1 = 0;
+static char* index_log_file = 0;
+static char* nested_file = 0;
 
-static FILE* files_ptr = 0;
-static uint32_t files_ptr_written = 0;
-static KlsItemCompressed occ_buff[OCC_FILE_ITEM_COUNT];
-static uint32_t occ_buff_count = 0;
-static uint32_t occ_file_item_offset = 0;
-static uint32_t occ_file_count = 0;
-static uint32_t file_count = 0;
-static struct KlsHtContext* ht = 0;
-static int line_number = 0;
-static uint64_t total_occ_pos = 0;
+static FILE* files_ptr0 = 0;
+static FILE* files_ptr1 = 0;
+static FILE* nested_ptr = 0;
 
-static char curr_file_name[FNAME_LEN];
-static int curr_file_is_binary;
+static t_file_id files_ptr1_written = 0;
+static t_occ_id occ_buff[OCC_FILE_ITEM_COUNT];
+static t_occ_id occ_buff_count = 0;
+static t_occ_file_id occ_file_count = 0;
+static t_file_id file_count = 0;
+static struct t_kls_ht_context * ht = 0;
+static t_occ_id total_occ_pos = 0;
 
-void get_occ_fname(char* buff, int num)
+void get_occ_fname(char* buff, t_occ_file_id num)
 {
-    snprintf(buff, FNAME_LEN, "%s/occ.%d.dat", kls_dir, 
-             num);
-}
-
-void flush_occ_buff(int force)
-{
-    if (occ_buff_count == OCC_FILE_ITEM_COUNT || force)
-    {
-        occ_buff_count = 0;
-        char buff[FNAME_LEN];
-        get_occ_fname(buff, occ_file_count);
-        FILE* f = fopen(buff, "w");
-        if (fwrite(occ_buff, sizeof(KlsItemCompressed), 
-                   OCC_FILE_ITEM_COUNT, f) != OCC_FILE_ITEM_COUNT)
-        {
-            LOG("e: couldn't write file %s\n", buff);
-            exit(EX_IOERR);
-        }
-
-        fclose(f);
-        occ_file_count++;
-        memset(occ_buff, 0, sizeof(occ_buff));
-    }
+    int rc = snprintf(buff, FNAME_LEN, "%s/occ.%u.dat", kls_dir, 
+                      num);
+    PATH_POSTPRINT_CHECK_U(buff, num, rc);
 }
 
 int remove_occ_file(int num)
@@ -68,434 +50,357 @@ int remove_occ_file(int num)
     return remove(occ_file_name);
 }
 
-int kls_init_storage(const char* base_dir0, int purge)
+void kls_st_init(const char* base_dir0, bool purge)
 {
-    base_dir = kls_concat(base_dir0, "");
+    base_dir = kls_ut_concat_fnames(base_dir0, "");
     base_dir_len = strlen(base_dir);
-    kls_dir = kls_concat(base_dir, kls_subdir);
+    kls_dir = kls_ut_concat_fnames(base_dir, kls_ut_subdir);
 
-    words_file = kls_concat(kls_dir, "/words.dat");
-    files_file = kls_concat(kls_dir, "/files.dat");
+    words_file0 = kls_ut_concat_fnames(kls_dir, "/words0.dat");
+    words_file1 = kls_ut_concat_fnames(kls_dir, "/words1.dat");
+
+    files_file0 = kls_ut_concat_fnames(kls_dir, "/files0.dat");
+    files_file1 = kls_ut_concat_fnames(kls_dir, "/files1.dat");
+
+    index_log_file = kls_ut_concat_fnames(kls_dir, "/index.log");
+
+    nested_file = kls_ut_concat_fnames(kls_dir, "/nested.txt");
     
     if (purge) 
     {
-        LOG("i: removing index\n");
-        remove(words_file);
-        remove(files_file);
-        int i = 0;
+        LOGI("purge");
+        remove(words_file0);
+        remove(words_file1);
+        remove(files_file0);
+        remove(files_file1);
+        remove(index_log_file);
+        remove(nested_file);
+        size_t i = 0;
         while (remove_occ_file(i++) == 0);
 
-        ht = (struct KlsHtContext*)malloc(sizeof(struct KlsHtContext));
-        kls_create_ht(ht, HT_SIZE);
-
         mkdir(kls_dir, 0700);
-        
-        files_ptr = fopen(files_file, "w");
 
-        if (!files_ptr)
+        kls_ut_init_log_file(index_log_file);
+
+        files_ptr0 = fopen(files_file0, "w");
+        KLS_IO_CHECK(files_ptr0, "cannot open for write %s", 
+                     files_file0);
+        files_ptr1 = fopen(files_file1, "w");
+        KLS_IO_CHECK(files_ptr1, "cannot open for write %s", 
+                     files_file1);
+        nested_ptr = fopen(nested_file, "w");
+        KLS_IO_CHECK(nested_ptr, "cannot open for write %s", 
+                     nested_file);
+
+        memset(occ_buff, 0, sizeof(occ_buff));
+
+        ht = (struct t_kls_ht_context*)malloc(
+                     sizeof(struct t_kls_ht_context));
+        kls_ht_create(ht, HT_SIZE);
+    }
+}
+
+void flush_occ_buff(int force)
+{
+    if ((occ_buff_count == OCC_FILE_ITEM_COUNT || force) && 
+        occ_buff_count > 0)
+    {
+        occ_buff_count = 0;
+        char buff[FNAME_LEN];
+        get_occ_fname(buff, occ_file_count);
+        FILE* f = fopen(buff, "w");
+        if (fwrite(occ_buff, sizeof(t_occ_id), 
+                   OCC_FILE_ITEM_COUNT, f) != OCC_FILE_ITEM_COUNT)
         {
-            LOG("e: cannot open for write %s", files_file);
+            LOGE("couldn't write file %s", buff);
             exit(EX_IOERR);
         }
 
+        fclose(f);
+        occ_file_count++;
         memset(occ_buff, 0, sizeof(occ_buff));
     }
-    return 0;
 }
 
-void kls_add_word(const char* word)
-{
-    uint64_t prev_occ_pos;
-    kls_put(ht, word, total_occ_pos, &prev_occ_pos);
-
-    KlsItemCompressed kic;
-    kls_compress(occ_file_item_offset, line_number, 
-                 prev_occ_pos ? total_occ_pos - prev_occ_pos : 0, &kic);
-    occ_buff[occ_buff_count++] = kic;
-    flush_occ_buff(0);
-    total_occ_pos++;
-    occ_file_item_offset++;
-}
-
-void kls_add_file(const char* file)
-{
-    const char* relative_file = file + base_dir_len + 1;
-    strcpy(curr_file_name, relative_file);
-    // null char + is binary flag
-    uint32_t ds = strlen(curr_file_name) + 1 + 1;
-    curr_file_is_binary = 0;
-
-    KlsItemCompressed kic;
-    kls_compress_file_start(files_ptr_written, &kic);
-    files_ptr_written += ds;
-    occ_buff[occ_buff_count++] = kic;
-    total_occ_pos++;
-    flush_occ_buff(0);
-
-    line_number = 0;
-    occ_file_item_offset = 1;
-}
-
-int kls_is_storage_folder(const char* fname)
-{
-    int zz = strlen(kls_subdir);
-    int zz2 = strlen(fname);
-    return zz2 < zz ? 0 : strcmp(fname + (zz2 - zz), kls_subdir) == 0;
-}
-
-void kls_finish_storage(int sync_to_hdd)
+void kls_st_finish(bool sync_to_hdd)
 {
     if (sync_to_hdd)
         flush_occ_buff(1);
     if (ht)
     {
-        kls_ht_dump(ht, 1, 1);
+        kls_ht_dump_stats(ht);
         if (sync_to_hdd)
-            kls_write_ht(ht, words_file);
-        kls_destroy_ht(ht);
+            kls_ht_write(ht, words_file0, words_file1);
+        kls_ht_destroy(ht);
         free(ht);
     }
-    if (files_ptr)
-        fclose(files_ptr);
+    if (files_ptr0)
+        fclose(files_ptr0);
+    if (files_ptr1)
+        fclose(files_ptr1);
+    if (nested_ptr)
+        fclose(nested_ptr);
 }
 
-char* kls_get_base_dir()
+char* kls_st_get_base_dir()
 {
     return base_dir;
 }
 
-struct OccFile
+void kls_st_add_file(const char* file, bool is_binary)
 {
-    uint32_t index;
-    KlsItemCompressed buff[OCC_FILE_ITEM_COUNT];
-    struct OccFile* prev;
-    struct OccFile* next;
-};
+    const char* relative_file = file + base_dir_len + 1;
 
-struct OccFile* create_occ_file(uint32_t index, struct OccFile* prev, 
-                                struct OccFile* next)
-{
-    struct OccFile* res;
-    res = (struct OccFile*)malloc(sizeof(struct OccFile));
-    memset(res, 0, sizeof(struct OccFile));
-    res->index = index;
-    res->prev = prev;
-    res->next = next;
-
-    if (prev)
-        prev->next = res;
-    if (next)
-        next->prev = res;
-
-    char fbuff[FNAME_LEN];
-    get_occ_fname(fbuff, index);
-
-    FILE* f = fopen(fbuff, "r");
-    if (fread(res->buff, sizeof(KlsItemCompressed), OCC_FILE_ITEM_COUNT, 
-              f) != OCC_FILE_ITEM_COUNT)
-    {
-        LOG("e: couldn't read file %s\n", fbuff);
-        exit(EX_IOERR);
-    }
-    fclose(f);
-
-    return res;
+    t_file_id ds = strlen(relative_file) + 1;
+    
+    fwrite(&files_ptr1_written, sizeof(files_ptr1_written),
+           1, files_ptr0);
+    char bb = (char)is_binary;
+    fwrite(&bb, 1, 1, files_ptr0);
+    
+    fwrite(relative_file, ds, 1, files_ptr1);
+    files_ptr1_written += ds;
 }
 
-void destroy_occ_file(struct OccFile* f)
+void kls_st_file_done()
 {
-    // TODO: write word file
-    struct OccFile* tmp = f->next;
-    if (f->prev)
-        f->prev->next = f->next;
-    if (f->next)
-        f->next->prev = f->prev;
-    free(f);
+    fwrite(&total_occ_pos, sizeof(total_occ_pos), 1, files_ptr0);
 }
 
-void destroy_occ_file_chain(struct OccFile* last)
+void kls_st_add_word(const char* word)
 {
-    assert(last && last->next == 0 || !last);
+    t_occ_id prev_occ_pos;
+    kls_ht_put(ht, word, total_occ_pos, &prev_occ_pos);
 
-    while (last)
-    {
-        struct OccFile* tmp = last->prev;
-        destroy_occ_file(last);
-        last = tmp;
-    }
+    occ_buff[occ_buff_count++] = prev_occ_pos;
+    flush_occ_buff(0);
+    total_occ_pos++;
 }
 
-char* get_item_from(struct OccFile** last0, struct KlsItem* item0, 
-                    char* files_list, uint64_t occ_pos, int* is_binary)
+void kls_st_nested_ignored(const char* fname)
 {
-    char* res;
-    assert(last0);
-    struct OccFile* last = *last0;
-    assert(files_list);
-    assert(!last || !last->next);
+    fwrite(fname, 1, strlen(fname), nested_ptr);
+    static const char newline = '\n';
+    fwrite(&newline, 1, 1, nested_ptr);
+}
 
-    // cleaning up, removing unneeded OccFiles
-    {
-        uint64_t occ_file_index = occ_pos / OCC_FILE_ITEM_COUNT;
+void dump_nested_for(const char* word)
+{
+    FILE* f = fopen(nested_file, "r");
 
-        while (last && last->index > occ_file_index)
-        {
-            assert(last->prev && 
-                   (last->prev->next == last) || !last->prev);
-            struct OccFile* tmp = last->prev;
-            destroy_occ_file(last);
-            last = tmp;
-        }
-    }
+    char buff[FNAME_LEN + 1];
+    memset(buff, 0, FNAME_LEN + 1);
+    int buff_pos = 0;
 
-    struct OccFile* last_last = last;
-    int item_set = 0;
     while (1)
     {
-        uint64_t occ_file_index = occ_pos / OCC_FILE_ITEM_COUNT;
-        uint64_t occ_file_offset = occ_pos % OCC_FILE_ITEM_COUNT;
+        char c;
+        fread(&c, 1, 1, f);
 
-        struct OccFile* p = last_last;
-        struct OccFile* p0 = 0;
-
-        while (p)
-        {
-            if (p->index <= occ_file_index)
-                break;
-            p0 = p;
-            p = p->prev;
-        }
-
-        if (!p || p->index < occ_file_index)
-            p = create_occ_file(occ_file_index, p, p0);
-
-        if (!last)
-            last = p;
-
-        KlsItemCompressed tmp = p->buff[occ_file_offset];
-        struct KlsItem item;
-        kls_uncompress_item(tmp, &item);
-
-        if (!item_set)
-        {
-            assert((uint8_t)item.type > (uint8_t)KLS_ITEM_FILE_START);
-            *item0 = item;
-            item_set = 1;
-        }
-        else if (item.type == KLS_ITEM_FILE_START)
-        {
-            char* zz = files_list + item.kfs.file_index;
-            res = kls_concat("./", zz);
-            *is_binary = *(files_list + item.kfs.file_index +
-                           strlen(zz) + 1);
+        if (feof(f))
             break;
-        }
 
-        assert(occ_pos >= item.occ.jumpback);
-        occ_pos -= item.occ.jumpback;
-        last_last = p;
-    }
+        KLS_CHECK(c, INAPPROPRIATE_FILE_OBJECT, "bad character in %s",
+                  nested_file)
 
-    *last0 = last;
-    return res;
-}
-
-char* load_file(const char* name, uint64_t* fs)
-{
-    FILE* f = fopen(name, "r");
-    if (!f)
-    {
-        LOG("e: couldn't open %s\n", name);
-        exit(EX_IOERR);
-    }
-    fseek(f, 0, SEEK_END);
-    uint64_t sz = ftell(f);
-    fseek(f, 0, SEEK_SET);
-
-    char* res = malloc(sz);
-
-    if (fread(res, 1, sz, f) != sz)
-    {
-        LOG("e: couldn't read file %s\n", name);
-        exit(EX_IOERR);
-    }
-    fclose(f);
-    *fs = sz;
-    return res;
-}
-
-uint64_t* init_endlines(char* ff, uint64_t size)
-{
-    uint32_t cnt = 0;
-    for (uint64_t i = 0; i < size; i++)
-        if (ff[i] == '\n')
-            cnt++;
-
-    uint64_t* res = (uint64_t*)malloc(sizeof(uint64_t) * cnt);
-    uint64_t cr = 0;
-    for (uint64_t i = 0; i < size; i++)
-        if (ff[i] == '\n')
+        if (c == '\n')
         {
-            ff[i] = 0;
-            res[cr++] = i;
-        }
-
-    return res;
-}
-
-void dump_index_for(const char* word, uint64_t occ_pos)
-{
-    uint64_t files_list_fs_ignored;
-    char* files_list = load_file(files_file, &files_list_fs_ignored);
-
-    char* curr_file = 0;
-    uint64_t curr_file_size = 0;
-    char* curr_fname = 0;
-    uint64_t* endlines = 0;
-    int is_binary = 0;
-    struct OccFile* last = 0;
-    struct KlsItem item;
-    uint64_t occ_in_file = 0;
-
-    while (1)
-    {
-        char* fname = get_item_from(&last, &item, files_list, occ_pos,
-                                    &is_binary);
-        if (!curr_fname || strcmp(curr_fname, fname) != 0)
-        {
-            if (curr_file) 
-                free(curr_file);
-            if (endlines)
-                free(endlines);
-            if (curr_fname)
-                free(curr_fname);
-            curr_fname = fname;
-
-            occ_in_file = 0;
-
-            if (is_binary)
+            if (buff_pos > 0)
             {
-                curr_file = 0;
-                endlines = 0;
-            } 
-            else
-            {
-                curr_file = load_file(curr_fname, &curr_file_size);
-                endlines = init_endlines(curr_file, curr_file_size);
+                buff[buff_pos] = 0;
+                char cmd_buff[FNAME_LEN * 2];
+                snprintf(cmd_buff, FNAME_LEN, 
+                         "cd %s && kaseklis get %s", 
+                         buff, word);
+                buff_pos = 0;
             }
-        }
-        occ_in_file++;
-
-        if (is_binary)
-        {
-            if (occ_in_file == 1)
-                printf("Binary file %s matches\n", fname);
         }
         else
         {
-            uint64_t fpos = item.occ.line_number == 0 ? 0 : 
-                endlines[item.occ.line_number - 1] + 1;
-
-            if (fpos < curr_file_size)
-            {
-                char* line = curr_file + fpos;
-                if (strlen(line) > MAX_DISPLAYABLE_LINE_LENGTH)
-                    printf("LONG %s:%lu\n", fname, item.occ.line_number);
-                else
-                    printf("%s:%lu %s\n", fname, item.occ.line_number, 
-                           line);
-            }
-            else
-            {
-                LOG("w: file %s appears to be changed since indexing", 
-                    curr_fname);
-            }
-        }
-            
-        if (!item.occ.prev_occurence)
-            break;
-
-        assert(occ_pos > item.occ.prev_occurence);
-        occ_pos -= item.occ.prev_occurence;
-    }
-
-    if (curr_file) 
-        free(curr_file);
-    if (endlines)
-        free(endlines);
-    if (curr_fname)
-        free(curr_fname);
-    
-    destroy_occ_file_chain(last);
-    free(files_list);
-}
-
-void kls_dump_index_for(const char* word)
-{
-    char buff[READ_WORD_BUFF_SIZE];
-    char buff2[MAX_WORD_LEN + 1];
-    uint8_t buff3[sizeof(KlsItemCompressed)];
-
-    FILE* f = fopen(words_file, "r");
-    int c;
-    uint32_t item_pos = 0;
-
-    int part = 0;
-    int found = 0;
-
-    while (!found && (c = fread(buff, 1, READ_WORD_BUFF_SIZE, f)) > 0)
-    {
-        for (int i = 0; i < c; i++) 
-        {
-            char cc = buff[i];
-
-            if (part == 0)
-            {
-                buff2[item_pos++] = cc;
-                if (!cc) {
-                    part = 1;
-                    item_pos = 0;
-                }
-            }
-            else
-            {
-                buff3[item_pos++] = cc;
-                if (item_pos == sizeof(KlsItemCompressed))
-                {
-                    if (strcmp(buff2, word) == 0) 
-                    {
-                        found = 1;
-                        break;
-                    }
-                    part = 0;
-                    item_pos = 0;
-                }
-            }
+            buff[buff_pos++] = c;
+            KLS_CHECK(buff_pos < FNAME_LEN, 
+                      KLS_LIMIT_EXCEEDED,
+                      "nested folder name too long %s", buff);
         }
     }
+
     fclose(f);
+}
 
-    if (found)
+void read_fd0(char* data,
+              t_occ_id occ_pos, t_file_id* curr_file_pos,
+              uint32_t* fname_offset, bool* is_binary)
+{
+    KLS_ASSERT(occ_pos > 0, "occ_pos should be > 0");
+    while (1)
     {
-        uint64_t occ_pos = *((uint64_t*)buff3);
-        dump_index_for(word, occ_pos);
+        t_file_id pos = *curr_file_pos * FILES_FILE0_ITEM_SIZE;
+
+        t_occ_id min_occ_id;
+        if (*curr_file_pos == 0)
+            min_occ_id = 0;
+        else
+            min_occ_id = *((t_occ_id*)(data + pos - sizeof(t_occ_id))); 
+        if (min_occ_id < occ_pos)
+        {
+            *fname_offset = *((uint32_t*)(data + pos));
+            *is_binary = *((char*)(data + pos + sizeof(t_file_id)));
+            break;
+        }
+        else
+            (*curr_file_pos)--;
     }
 }
 
-void kls_next_line()
+void print_line(char* data, uint64_t curr_index, uint64_t line_start, 
+                char* fname, uint32_t line_number)
 {
-    line_number++;
+    uint64_t line_len = curr_index - line_start - 1;
+    if (line_len > MAX_DISPLAYABLE_LINE_LENGTH)
+    {
+        printf("LONG %s:%u\n", fname, line_number);
+    }
+    else
+    {
+        char* line = data + line_start + 1;
+        char ll[MAX_DISPLAYABLE_LINE_LENGTH + 1];
+        strncpy(ll, line, line_len);
+        ll[line_len] = 0;
+        printf("%s:%u %s\n", fname, line_number, ll);
+    }
 }
 
-void kls_is_binary()
+void find_word_in(char* fname, char* word)
 {
-    curr_file_is_binary = 1;
+    uint64_t size;
+    char* data = kls_ut_load_file(fname, &size);
+
+    int wlen = strlen(word);
+    // 0: searching for word
+    // 1: word found, looking for line end
+    int state = 0;
+    int good_char_count = 0;
+    uint32_t line_number = 1;
+    uint64_t line_start = 0;
+    uint64_t i;
+
+    for (i = 0; i < size; i++)
+    {
+        char c = data[i];
+        switch (state)
+        {
+        case 0:
+            {
+                if (c == word[good_char_count])
+                {
+                    good_char_count++;
+
+                    if (good_char_count == wlen)
+                        state = 1;
+                } 
+                else
+                {
+                    good_char_count = 0;
+                    if (c == '\n') 
+                    {
+                        line_start = i;
+                        line_number++;
+                    }
+                }
+                break;
+            }
+        case 1:
+            {
+                if (c == '\n')
+                {
+                    print_line(data, i, line_start, fname, line_number);
+                    line_start = i;
+                    line_number++;
+                    good_char_count = 0;
+                    state = 0;
+                }
+            
+                break;
+            }
+        }
+    }
+
+    if (state == 1)
+        print_line(data, i, line_start, fname, line_number);
+
+    free(data);
 }
 
-void kls_file_done()
+
+void kls_st_dump_index_for(const char* word0)
 {
-    uint32_t ds = strlen(curr_file_name) + 1;
-    fwrite(curr_file_name, 1, ds, files_ptr);
-    fwrite((char*)&curr_file_is_binary, 1, 1, files_ptr);
+    char word[MAX_WORD_LEN + 1];
+    memset(word, 0, MAX_WORD_LEN + 1);
+    strncpy(word, word0, MAX_WORD_LEN);
+    dump_nested_for(word);
+
+    t_occ_id occ_pos;
+    if (!kls_ht_get_occ_id(word, words_file0, words_file1, &occ_pos))
+        return;
+    bool has_occ_file;
+    t_occ_file_id curr_occ_file_index;
+
+    uint64_t ff0_size, tmp;
+    char* files_data0 = kls_ut_load_file(files_file0, &ff0_size);
+    char* files_data1 = kls_ut_load_file(files_file1, &tmp);
+
+    if (ff0_size == 0)
+        return;
+
+    KLS_CHECK(ff0_size % FILES_FILE0_ITEM_SIZE == 0, 
+              INAPPROPRIATE_FILE_OBJECT,
+              "bad file size %s", files_file0);
+    t_file_id curr_file_pos = ff0_size / FILES_FILE0_ITEM_SIZE - 1;
+
+    while (occ_pos > 0)
+    {
+        // displaying data for current pos
+        {
+            bool is_binary;
+            uint32_t fname_offset;
+            read_fd0(files_data0, 
+                     occ_pos, &curr_file_pos,
+                     &fname_offset, &is_binary);
+            char* fname = files_data1 + fname_offset;
+
+            if (is_binary)
+                printf("Binary file %s matches\n", fname);
+            else
+                find_word_in(fname, word);
+        }
+        
+        // moving to next pos
+        {
+            t_occ_file_id occ_file_index = occ_pos / OCC_FILE_ITEM_COUNT;
+            t_occ_id occ_file_offset = occ_pos % OCC_FILE_ITEM_COUNT;
+
+            if (!has_occ_file || occ_file_index != curr_occ_file_index)
+            {
+                char fbuff[FNAME_LEN];
+                get_occ_fname(fbuff, occ_file_index);
+
+                FILE* f = fopen(fbuff, "r");
+                KLS_IO_CHECK(f, "couldn't open %s", fbuff);
+                KLS_IO_CHECK(fread((char*)occ_buff, 
+                                   sizeof(t_occ_id) * 
+                                   OCC_FILE_ITEM_COUNT, 
+                                   1, f) == 1, 
+                             "couldn't read %s", fbuff);
+
+                curr_occ_file_index = occ_file_index;
+                has_occ_file = 1;
+            }
+            occ_pos = occ_buff[occ_file_offset];
+        }
+    }
+
+    free(files_data0);
+    free(files_data1);
 }
+
 
