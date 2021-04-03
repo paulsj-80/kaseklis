@@ -1,5 +1,6 @@
 *~
 *.o
+.kaseklis
 src/.kaseklis
 src/test
 src/core

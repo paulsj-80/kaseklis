@@ -33,8 +33,9 @@ void kls_ht_dump(struct t_kls_ht_context* ht, bool omit_empty);
 void kls_ht_write(struct t_kls_ht_context* ht, 
                   const char* file_name0,
                   const char* file_name1);
-void kls_ht_put(struct t_kls_ht_context* ht, const char* id, 
-                t_occ_id occ_pos, t_occ_id* prev_occ_pos);
+bool kls_ht_put(struct t_kls_ht_context* ht, const char* id, 
+                t_occ_id occ_pos, t_occ_id* prev_occ_pos,
+                t_occ_id replace_if_lower_than);
 struct t_kls_ht_item* kls_ht_get(struct t_kls_ht_context* ht, 
                                  const char* id);
 
@@ -43,7 +44,8 @@ void kls_ht_dump_stats(struct t_kls_ht_context* ht);
 bool kls_ht_get_occ_id(char* word,
                        const char* file_name0,
                        const char* file_name1,
-                       t_occ_id* res);
+                       t_occ_id* res,
+                       t_hash ht_size);
 
 
 

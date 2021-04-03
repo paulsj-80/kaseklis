@@ -8,8 +8,8 @@
 #include "exit_codes.h"
 
 
-#define OCC_FILE_ITEM_COUNT 1024 * 128
-#define HT_SIZE 1024 * 1024
+#define OCC_FILE_ITEM_COUNT (1024 * 128)
+#define HT_SIZE (1024 * 1024)
 
 #define FILES_FILE0_ITEM_SIZE (sizeof(t_file_id) + 1 + sizeof(t_occ_id))
 
@@ -35,6 +35,7 @@ static t_occ_file_id occ_file_count = 0;
 static t_file_id file_count = 0;
 static struct t_kls_ht_context * ht = 0;
 static t_occ_id total_occ_pos = 0;
+static t_occ_id first_in_file = 0;
 
 void get_occ_fname(char* buff, t_occ_file_id num)
 {
@@ -165,16 +166,18 @@ void kls_st_add_file(const char* file, bool is_binary)
 void kls_st_file_done()
 {
     fwrite(&total_occ_pos, sizeof(total_occ_pos), 1, files_ptr0);
+    first_in_file = total_occ_pos + 1;
 }
 
 void kls_st_add_word(const char* word)
 {
     t_occ_id prev_occ_pos;
-    kls_ht_put(ht, word, total_occ_pos, &prev_occ_pos);
-
-    occ_buff[occ_buff_count++] = prev_occ_pos;
-    flush_occ_buff(0);
-    total_occ_pos++;
+    if (kls_ht_put(ht, word, total_occ_pos, &prev_occ_pos, first_in_file))
+    {
+        occ_buff[occ_buff_count++] = prev_occ_pos;
+        flush_occ_buff(0);
+        total_occ_pos++;
+    }
 }
 
 void kls_st_nested_ignored(const char* fname)
@@ -340,7 +343,8 @@ void kls_st_dump_index_for(const char* word0)
     dump_nested_for(word);
 
     t_occ_id occ_pos;
-    if (!kls_ht_get_occ_id(word, words_file0, words_file1, &occ_pos))
+    if (!kls_ht_get_occ_id(word, words_file0, words_file1, &occ_pos,
+                           HT_SIZE))
         return;
     bool has_occ_file;
     t_occ_file_id curr_occ_file_index;

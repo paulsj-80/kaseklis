@@ -87,37 +87,48 @@ void kls_ht_write(struct t_kls_ht_context* ht,
     // first byte is reserved, as there will be many references to
     // null inside f0
     t_hash f1_size = 1;
-    fwrite((char*)&zero, 1, 1, f0);
+    KLS_IO_CHECK(fwrite((char*)&zero, 1, 1, f1) == 1,
+                 "couldn't write %s", file_name1);
 
     for (t_hash i = 0; i < ht->size; i++) 
     {
         struct t_kls_ht_item_0* zero_p = ht->items + i;
         if (zero_p->bucket_size == 0)
         {
-            fwrite((char*)&zero, sizeof(t_hash), 1, f0);
+            KLS_IO_CHECK(fwrite((char*)&zero, sizeof(t_hash), 1, f0) == 1,
+                         "couldn't write %s", file_name0);
             continue;
         }
-        fwrite((char*)&f1_size, sizeof(t_hash), 1, f0);
+        KLS_IO_CHECK(fwrite((char*)&f1_size, sizeof(t_hash), 1, f0) == 1,
+                     "couldn't write %s", file_name0);
 
         struct t_kls_ht_item* p = &zero_p->item;
         while (p)
         {
             int ssize = strlen(p->id) + 1;
-            fwrite(p->id, 1, ssize, f1);
-            fwrite((char*)&p->occ_pos, 1, sizeof(t_occ_id), f1);
+            KLS_IO_CHECK(fwrite(p->id, ssize, 1, f1) == 1,
+                         "couldn't write %s", file_name1);
+            KLS_IO_CHECK(fwrite((char*)&p->occ_pos, sizeof(t_occ_id), 
+                                1, f1) == 1,
+                         "couldn't write %s", file_name1);
             f1_size += ssize + sizeof(t_occ_id);
             p = p->next;
         }
+        fwrite((char*)&zero, 1, 1, f1);
+        f1_size++;
     }
 
     fclose(f1);
     fclose(f0);
 }
 
-void kls_ht_put(struct t_kls_ht_context* ht, const char* id, 
-                t_occ_id occ_pos, t_occ_id* prev_occ_pos)
+bool kls_ht_put(struct t_kls_ht_context* ht, const char* id, 
+                t_occ_id occ_pos, t_occ_id* prev_occ_pos,
+                t_occ_id replace_if_lower_than)
 {
     KLS_ASSERT(id && strlen(id) > 0, "bad id to hash");
+
+    bool res = 0;
 
     ht->put_count++;
 
@@ -134,8 +145,12 @@ void kls_ht_put(struct t_kls_ht_context* ht, const char* id,
     }
     if (p)
     {
-        *prev_occ_pos = p->occ_pos;
-        p->occ_pos = occ_pos;
+        if (p->occ_pos < replace_if_lower_than)
+        {
+            *prev_occ_pos = p->occ_pos;
+            p->occ_pos = occ_pos;
+            res = 1;
+        }
     } 
     else 
     {
@@ -160,7 +175,9 @@ void kls_ht_put(struct t_kls_ht_context* ht, const char* id,
         }
         zero_p->bucket_size++;
         KLS_CHECK_LIMIT(zero_p->bucket_size, t_bucket_size);
+        res = 1;
     }
+    return res;
 }
 
 struct t_kls_ht_item* kls_ht_get(struct t_kls_ht_context* ht, 
@@ -226,48 +243,53 @@ void kls_ht_dump_stats(struct t_kls_ht_context* ht)
 bool kls_ht_get_occ_id(char* word,
                        const char* file_name0,
                        const char* file_name1,
-                       t_occ_id* res)
+                       t_occ_id* res,
+                       t_hash ht_size)
 {
     FILE* f0 = fopen(file_name0, "r");
     KLS_IO_CHECK(f0, "cannot open for read %s", file_name0);
-    FILE* f1 = fopen(file_name1, "r");
-    KLS_IO_CHECK(f1, "cannot open for read %s", file_name1);
 
-    t_hash h = kls_ut_hash(word);
+    t_hash h = kls_ut_hash(word) % ht_size;
     fseek(f0, h * sizeof(t_hash), SEEK_SET);
 
-    t_word_id offset, offset_max, max_read;
-    fread((char*)&offset, sizeof(offset), 1, f0);
-    fread((char*)&offset_max, sizeof(offset), 1, f0);
-    if (feof(f0))
-        offset_max = -1;
-    max_read = offset_max - offset;
+    t_word_id offset;
+    KLS_IO_CHECK(fread((char*)&offset, sizeof(offset), 1, f0) == 1,
+                 "couldn't read from %s", file_name0);
     fclose(f0);
 
+    if (offset == 0)
+        return 0;
+
+    FILE* f1 = fopen(file_name1, "r");
+    KLS_IO_CHECK(f1, "cannot open for read %s", file_name1);
+    
     fseek(f1, offset, SEEK_SET);
 
     int part = 0;
     bool found = 0;
+    bool stop = 0;
 
     char buff[READ_WORD_BUFF_SIZE];
     char buff2[MAX_WORD_LEN + 1];
     uint8_t buff3[sizeof(t_occ_id)];
-    char c;
+    size_t c;
     int item_pos = 0;
-    int chars_read = 0;
 
-    while (!found && (c = fread(buff, 1, READ_WORD_BUFF_SIZE, f1)) > 0)
+    while (!found && !stop && 
+           (c = fread(buff, 1, READ_WORD_BUFF_SIZE, f1)) > 0)
     {
-        if (chars_read > max_read)
-            break;
-        chars_read += c;
-
         for (int i = 0; i < c; i++) 
         {
             char cc = buff[i];
 
             if (part == 0)
             {
+                if (item_pos == 0 && cc == 0)
+                {
+                    stop = 1;
+                    break;
+                }
+
                 buff2[item_pos++] = cc;
                 if (!cc) 
                 {

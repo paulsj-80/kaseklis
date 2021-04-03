@@ -104,6 +104,9 @@ void process_char(struct t_file_processor* fp, char c)
 
 void process(struct t_file_processor* fp)
 {
+    if (fp->size == 0)
+        return;
+
     char* p = fp->data;
     char* p_end = p + fp->size;
 

@@ -32,17 +32,19 @@ char* kls_ut_concat_fnames(const char* s0, const char* s1)
 
 char* kls_ut_load_file(const char* name, uint64_t* fs)
 {
+    char* res = 0;
     FILE* f = fopen(name, "r");
     KLS_IO_CHECK(f, "couldn't open %s", name);
     fseek(f, 0, SEEK_END);
     uint64_t sz = ftell(f);
     fseek(f, 0, SEEK_SET);
 
-    char* res = malloc(sz);
-
-    KLS_IO_CHECK(fread(res, sz, 1, f) != sz, 
-                 "couldn't read %s", name);
-    
+    if (sz > 0)
+    {
+        res = malloc(sz);
+        size_t rs = fread(res, sz, 1, f);
+        KLS_IO_CHECK(rs == 1, "couldn't read %s", name);
+    }
     fclose(f);
     *fs = sz;
     return res;
