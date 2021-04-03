@@ -80,3 +80,30 @@ void kls_ut_init_log_file(const char* fname)
                  fname);
     setvbuf(kls_ut_log_file_ptr, NULL, _IONBF, 0);
 }
+
+bool kls_ut_is_letter(char c)
+{
+    return 
+        ((c >= 'a' && c <= 'z') || 
+         (c >= 'A' && c <= 'Z') || (c == '_')) ? 1 : 0;
+}
+
+bool kls_ut_is_number(char c)
+{
+    return (c >= '0' && c <= '9');
+}
+
+bool kls_ut_is_word(char* w)
+{
+    size_t wl = strlen(w);
+    if (!kls_ut_is_letter(*w))
+        return 0;
+    w++;
+    for (size_t i = 1; i < wl; i++)
+    {
+        if (!kls_ut_is_letter(*w) && !kls_ut_is_number(*w))
+            return 0;
+        w++;
+    }
+    return 1;
+}

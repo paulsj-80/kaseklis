@@ -58,6 +58,8 @@ extern const char* kls_ut_subdir;
 extern const char* ignored_flag;
 
 
-
+bool kls_ut_is_letter(char c);
+bool kls_ut_is_number(char c);
+bool kls_ut_is_word(char* w);
 
 #endif

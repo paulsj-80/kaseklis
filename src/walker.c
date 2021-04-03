@@ -64,7 +64,7 @@ void kls_wr_walk(const char* name, bool is_root)
 
     KLS_CHECK(!is_root || has_kaseklis, MISSING_FILE_OBJECT, 
               "root folder %s doesn't contain %s", name, kls_ut_subdir)
-    KLS_CHECK(!is_root || !is_ignored, INAPPROPRIATE_FILE_OBJECT, 
+    KLS_CHECK(!is_root || !is_ignored, BAD_FILE_OBJECT, 
               "root folder %s contains ignored", name)
 
     char path[FNAME_LEN];

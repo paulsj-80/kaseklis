@@ -78,6 +78,8 @@ KLS03011 all kaseklis-nested folders' names are collected during indexing
          and stored in nested.txt (one name per line)
 KLS03012 index.log and therefore all stderr output should be kept short,
          for better performance
+KLS03013 nested.txt format is a list of folders; each line has to end
+         with newline character
 
 --- data invariances
 KLS04000 one occurence per word in file, even if there are multiple 

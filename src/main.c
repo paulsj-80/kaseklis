@@ -70,6 +70,8 @@ int main(int argc, char** arg)
             word = arg[2];
             KLS_CHECK(strlen(word) > 1, EX_USAGE, 
                       "word length should exceed 1");
+            KLS_CHECK(kls_ut_is_word(word), EX_USAGE,
+                      "word may consist of letters, numbers and underscores; it may start with a letter or underscore");
         }
         else
             exit_bad_usage();

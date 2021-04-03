@@ -1,7 +1,8 @@
 CC=gcc
-DEPS=file_proc.h storage.h walker.h utils.h htable.h comp.h
-SRC=file_proc.c storage.c walker.c utils.c htable.c comp.c
+DEPS=file_proc.h storage.h walker.h utils.h htable.h
+SRC=file_proc.c storage.c walker.c utils.c htable.c
 OBJ=$(patsubst %.c,%.o,$(SRC))
+#CFLAGS += -g -O2
 CFLAGS += -g
 
 all: kaseklis test

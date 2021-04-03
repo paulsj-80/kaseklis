@@ -67,9 +67,8 @@ void process_char(struct t_file_processor* fp, char c)
 {
     // TODO: ignore 30+ chars; remove is_newline
 
-    bool is_letter = ((c >= 'a' && c <= 'z') || 
-                      (c >= 'A' && c <= 'Z') || (c == '_')) ? 1 : 0;
-    bool is_number = (c >= '0' && c <= '9');
+    bool is_letter = kls_ut_is_letter(c);
+    bool is_number = kls_ut_is_number(c);
     bool word_started = fp->curr_word_len > 0;
     
     if (!word_started)
