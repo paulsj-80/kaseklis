@@ -54,7 +54,9 @@ void kls_wr_walk(struct t_storage_context* sc,
 
     if (has_kaseklis && !is_root)
     {
+        // KLS03008, KLS03009
         kls_st_nested_ignored(sc, name);
+        // KLS03007
         if (!is_ignored)
             LOGI("ignoring %s as being indexed separately", name);
         return;
@@ -80,6 +82,7 @@ void kls_wr_walk(struct t_storage_context* sc,
 
             int rc = snprintf(path, sizeof(path), "%s/%s", name, 
                               entry->d_name);
+            // KLS05013
             if (entry->d_name[0] == '.')
             {
                 LOGI("ignoring %s", path);

@@ -22,6 +22,7 @@ void kls_print_welcome()
     printf("    get <word>\n");
 }
 
+// KLS01011
 enum KlsCommand 
 {
     KLS_COMMAND_UNKNOWN=0,
@@ -88,6 +89,7 @@ int main(int argc, char** arg)
 
     struct t_storage_context sc;
     {
+        // KLS02010
         char base_dir[FNAME_LEN];
         char* bd = getcwd(base_dir, FNAME_LEN);
 

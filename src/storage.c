@@ -8,6 +8,7 @@
 #include "exit_codes.h"
 
 
+// KLS03005
 void get_occ_fname(char* buff, t_occ_file_id num, char* kls_dir)
 {
     int rc = snprintf(buff, FNAME_LEN, "%s/occ.%u.dat", kls_dir, 
@@ -55,7 +56,7 @@ void kls_st_init(struct t_storage_context* sc, const char* base_dir0,
         remove(sc->words_file1);
         remove(sc->files_file0);
         remove(sc->files_file1);
-        remove(sc->index_log_file);
+        remove(sc->index_log_file); // KLS07001
         remove(sc->nested_file);
         size_t i = 0;
         while (remove_occ_file(i++, sc->kls_dir) == 0);
@@ -85,6 +86,7 @@ void kls_st_init(struct t_storage_context* sc, const char* base_dir0,
     }
 }
 
+// KLS04001, KLS05008
 void flush_occ_buff(struct t_storage_context* sc, int force)
 {
     if ((sc->occ_buff_count == OCC_FILE_ITEM_COUNT || force) && 
@@ -166,6 +168,7 @@ void kls_st_file_done(struct t_storage_context* sc)
                             sc->files_ptr1) == 1,
                      "couldn't write %s", sc->files_file1);
 
+        // KLS04006
         KLS_IO_CHECK(fwrite(&sc->files_ptr1_written, 
                             sizeof(sc->files_ptr1_written),
                             1, sc->files_ptr0) == 1,
@@ -176,6 +179,7 @@ void kls_st_file_done(struct t_storage_context* sc)
         KLS_IO_CHECK(fwrite(&bb, 1, 1, sc->files_ptr0) == 1,
                      "couldn't write %s", sc->files_file0);
 
+        // KLS04005
         t_occ_id tmp = sc->total_occ_count - 1;
         KLS_IO_CHECK(fwrite(&tmp, sizeof(tmp), 1, sc->files_ptr0) == 1, 
                      "couldn't write %s", sc->files_file0);
@@ -186,9 +190,11 @@ void kls_st_file_done(struct t_storage_context* sc)
 void kls_st_add_word(struct t_storage_context* sc, const char* word)
 {
     t_occ_id prev_occ_pos;
+    // KLS04002
     if (kls_ht_put(sc->ht, word, sc->total_occ_count, &prev_occ_pos, 
                    sc->first_occ_in_file))
     {
+        // KLS04002
         sc->occ_buff[sc->occ_buff_count++] = prev_occ_pos;
         flush_occ_buff(sc, 0);
         sc->total_occ_count++;
@@ -198,6 +204,7 @@ void kls_st_add_word(struct t_storage_context* sc, const char* word)
 void kls_st_nested_ignored(struct t_storage_context* sc, 
                            const char* fname)
 {
+    // KLS03011, KLS03013
     fwrite(fname, 1, strlen(fname), sc->nested_ptr);
     static const char newline = '\n';
     fwrite(&newline, 1, 1, sc->nested_ptr);
@@ -230,7 +237,7 @@ void dump_nested_for(struct t_storage_context* sc, const char* word)
             if (buff_pos > 0)
             {
                 buff[buff_pos] = 0;
-
+                // KLS03010
                 struct t_storage_context sc2;
                 kls_st_init(&sc2, buff, buff + sc->base_dir_len + 1, 0);
                 kls_st_dump_index_for(&sc2, word);
@@ -278,6 +285,7 @@ void read_fd0(char* data,
     }
 }
 
+// KLS06001
 uint64_t print_line(char* data, uint64_t curr_index, 
                     uint64_t line_start, 
                     char* fname, uint32_t line_number,
@@ -287,6 +295,7 @@ uint64_t print_line(char* data, uint64_t curr_index,
     uint64_t line_len = curr_index - line_start;
     if (line_len > MAX_DISPLAYABLE_LINE_LENGTH)
     {
+        // KLS06002
         printf("LONG %s/%s:%u\n", prefix, fname, line_number);
         res++;
     }
@@ -345,6 +354,7 @@ void find_word_in(struct t_storage_context* sc,
                 {
                     good_char_count = 0;
 
+                    // KLS02006
                     if (c == '\n') 
                     {
                         line_start = i + 1;
@@ -358,6 +368,7 @@ void find_word_in(struct t_storage_context* sc,
             }
         case 1:
             {
+                // KLS02006
                 if (c == '\n')
                 {
                     results_printed += print_line(data, i, line_start, 
@@ -414,6 +425,7 @@ void kls_st_dump_index_for(struct t_storage_context* sc,
               "bad file size %s", sc->files_file0);
     t_file_id curr_file_pos = ff0_size / FILES_FILE0_ITEM_SIZE - 1;
 
+    // KLS04003
     while (occ_pos > 0)
     {
         // displaying data for current pos
@@ -426,6 +438,7 @@ void kls_st_dump_index_for(struct t_storage_context* sc,
             char* fname = files_data1 + fname_offset;
 
             if (is_binary)
+                // KLS01005, KLS06000
                 printf("Binary file %s matches\n", fname);
             else
             {

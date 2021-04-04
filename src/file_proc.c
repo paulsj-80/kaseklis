@@ -16,6 +16,7 @@ struct t_file_processor
     uint64_t size;
 };
 
+// KLS02007
 bool is_binary(struct t_file_processor* fp)
 {
     char* p = fp->data;
@@ -56,6 +57,7 @@ void init_file_processor(struct t_file_processor* fp,
 
 void word_found(struct t_file_processor* fp)
 {
+    // KLS05011
     if (fp->curr_word_len > 1) 
     {
         // last byte is always zero, it is not overwritten
@@ -73,11 +75,13 @@ void process_char(struct t_file_processor* fp, char c)
     
     if (!word_started)
     {
+        // KLS02003
         if (is_letter)
             fp->curr_word[fp->curr_word_len++] = c;
     }
     else
     {
+        // KLS02004, KLS02005
         bool word_ended = !(is_letter || is_number);
         bool word_just_filled = !word_ended && 
             (fp->curr_word_len + 1 == MAX_WORD_LEN);
@@ -129,8 +133,11 @@ void finish_file_processor(struct t_file_processor* fp)
 
 void kls_fp_process(struct t_storage_context* sc, const char* fname)
 {
+    // KLS01010
+
     if (kls_ut_file_size(fname) > MAX_INDEXABLE_FILE_SIZE)
     {
+        // KLS01006, KLS02008, KLS05010
         LOGI("too big %s", fname);
         return;
     }

@@ -5,6 +5,7 @@
 
 FILE* kls_ut_log_file_ptr = 0;
 uint64_t kls_full_one = -1;
+// KLS01002
 const char* kls_ut_subdir = "/.kaseklis";
 const char* ignored_flag = "/ignored";
 
@@ -83,6 +84,7 @@ void kls_ut_init_log_file(const char* fname)
 
 bool kls_ut_is_letter(char c)
 {
+    // KLS02000, KLS02001
     return 
         ((c >= 'a' && c <= 'z') || 
          (c >= 'A' && c <= 'Z') || (c == '_')) ? 1 : 0;
@@ -90,11 +92,13 @@ bool kls_ut_is_letter(char c)
 
 bool kls_ut_is_number(char c)
 {
+    // KLS02002
     return (c >= '0' && c <= '9');
 }
 
 bool kls_ut_is_word(char* w)
 {
+    // KLS02003
     size_t wl = strlen(w);
     if (!kls_ut_is_letter(*w))
         return 0;

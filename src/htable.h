@@ -14,6 +14,7 @@ struct t_kls_ht_item
 struct t_kls_ht_item_0
 {
     struct t_kls_ht_item item;
+    // KLS05005
     t_bucket_size bucket_size;
 };
 
@@ -23,6 +24,7 @@ struct t_kls_ht_context
     t_hash size;
 
     // stats
+    // KLS05005
     uint64_t put_count;
 };
 
@@ -33,6 +35,7 @@ void kls_ht_dump(struct t_kls_ht_context* ht, bool omit_empty);
 void kls_ht_write(struct t_kls_ht_context* ht, 
                   const char* file_name0,
                   const char* file_name1);
+// KLS04000
 bool kls_ht_put(struct t_kls_ht_context* ht, const char* id, 
                 t_occ_id occ_pos, t_occ_id* prev_occ_pos,
                 t_occ_id replace_if_lower_than);

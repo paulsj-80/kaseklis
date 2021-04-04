@@ -90,6 +90,7 @@ void kls_ht_write(struct t_kls_ht_context* ht,
     KLS_IO_CHECK(fwrite((char*)&zero, 1, 1, f1) == 1,
                  "couldn't write %s", file_name1);
 
+    // KLS04008
     for (t_hash i = 0; i < ht->size; i++) 
     {
         struct t_kls_ht_item_0* zero_p = ht->items + i;
@@ -197,6 +198,7 @@ struct t_kls_ht_item* kls_ht_get(struct t_kls_ht_context* ht,
     return p->id ? p : 0;
 }
 
+// KLS06004
 void kls_ht_dump_stats(struct t_kls_ht_context* ht)
 {
     int bsize = sizeof(t_bucket_size) * 8 + 1;

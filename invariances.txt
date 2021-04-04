@@ -71,9 +71,9 @@ KLS03008 if .kaseklis folder is inside a subfolder, relative to root
          (KLS01002), then that subfolder is considered kaseklis-nested
 KLS03009 kaseklis-nested folder is ignored during indexing (see
          KLS03007)
-KLS03010 kaseklis-nested folder is processed with a nested command line
-         call, when retrieving; if it is empty, it is ignored with a
-         warning (see KLS03007)
+KLS03010 kaseklis-nested folder is processed with a nested operation
+         when retrieving; if it is empty, it is ignored with a warning
+         (see KLS03007)
 KLS03011 all kaseklis-nested folders' names are collected during indexing
          and stored in nested.txt (one name per line)
 KLS03012 index.log and therefore all stderr output should be kept short,
@@ -91,8 +91,8 @@ KLS04002 each occurence item refers to previous in word's chain; word
 KLS04003 when retrieving, chain is output from end to beginning, thus
          line numbers are shrinking
 KLS04004 file visit order is not specified
-KLS04005 last occurence id for a file is growing inside file list 
-         (KLS03001)
+KLS04005 last occurence id for a file is strictly growing inside file 
+         list (KLS03001)
 KLS04006 name offset of a file is growing inside file list (KLS03001)
 KLS04007 hash table size is hardcoded
 KLS04008 words0.dat is constant size (KLS04007)
