@@ -121,6 +121,8 @@ KLS05010 large files are not indexed (KLS01006, KLS02008)
 KLS05011 words with size less than 2 are ignored, both when indexing and
          when retrieving
 KLS05012 file absolute name size cannot exceed 4096
+KLS05013 by default, all folders starting with "." are ignored (not 
+         traversed) when indexing
 
 --- output format when retrieving
 KLS06000 for binary files it is just notification, that file contains a

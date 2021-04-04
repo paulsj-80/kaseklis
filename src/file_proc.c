@@ -2,13 +2,13 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include "file_proc.h"
 #include "utils.h"
-#include "storage.h"
-
 
 
 struct t_file_processor
 {
+    struct t_storage_context* sc;
     char curr_word[MAX_WORD_LEN + 1];
     int curr_word_len;
     const char* curr_file;
@@ -42,31 +42,31 @@ bool is_binary(struct t_file_processor* fp)
 }
 
 void init_file_processor(struct t_file_processor* fp, 
+                         struct t_storage_context* sc,
                          const char* fname)
 {
     memset(fp, 0, sizeof(struct t_file_processor));
+    fp->sc = sc;
     fp->curr_file = fname;
 
     fp->data = kls_ut_load_file(fname, &fp->size);
     
-    kls_st_add_file(fname, is_binary(fp));
+    kls_st_add_file(fp->sc, fname, is_binary(fp));
 }
 
 void word_found(struct t_file_processor* fp)
 {
-    if (fp->curr_word_len > 2) 
+    if (fp->curr_word_len > 1) 
     {
         // last byte is always zero, it is not overwritten
         if (fp->curr_word_len < MAX_WORD_LEN)
             fp->curr_word[fp->curr_word_len] = 0;
-        kls_st_add_word(fp->curr_word);
+        kls_st_add_word(fp->sc, fp->curr_word);
     }
 }
 
 void process_char(struct t_file_processor* fp, char c)
 {
-    // TODO: ignore 30+ chars; remove is_newline
-
     bool is_letter = kls_ut_is_letter(c);
     bool is_number = kls_ut_is_number(c);
     bool word_started = fp->curr_word_len > 0;
@@ -123,11 +123,11 @@ void finish_file_processor(struct t_file_processor* fp)
 
     if (word_started && !word_notified_already)
         word_found(fp);
-    free(fp->data);
-    kls_st_file_done();
+    kls_ut_free(fp->data, fp->size);
+    kls_st_file_done(fp->sc);
 }
 
-void kls_fp_process(const char* fname)
+void kls_fp_process(struct t_storage_context* sc, const char* fname)
 {
     if (kls_ut_file_size(fname) > MAX_INDEXABLE_FILE_SIZE)
     {
@@ -136,7 +136,7 @@ void kls_fp_process(const char* fname)
     }
 
     struct t_file_processor fp;
-    init_file_processor(&fp, fname);
+    init_file_processor(&fp, sc, fname);
     process(&fp);
     finish_file_processor(&fp);
 }

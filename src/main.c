@@ -6,11 +6,13 @@
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
+#include <time.h>
 
 #include "utils.h"
 #include "walker.h"
 #include "storage.h"
 #include "exit_codes.h"
+
 
 void kls_print_welcome()
 {
@@ -27,16 +29,23 @@ enum KlsCommand
     KLS_COMMAND_GET
 };
 
-void cmd_index()
+void cmd_index(struct t_storage_context* sc)
 {
-    kls_wr_walk(kls_st_get_base_dir(), 1);
-    kls_st_finish(1);
+    clock_t t;
+    t = clock();    
+
+    kls_wr_walk(sc, kls_st_get_base_dir(sc), 1);
+    kls_st_finish(sc, 1);
+
+    t = clock() - t;
+    double time_taken = ((double)t)/CLOCKS_PER_SEC;
+    LOGI("elapsed %f seconds", time_taken);
 }
 
-void cmd_get(const char* w)
+void cmd_get(struct t_storage_context* sc, const char* w)
 {
-    kls_st_dump_index_for(w);
-    kls_st_finish(0);
+    kls_st_dump_index_for(sc, w);
+    kls_st_finish(sc, 0);
 }
 
 void exit_bad_usage()
@@ -77,12 +86,13 @@ int main(int argc, char** arg)
             exit_bad_usage();
     }
 
+    struct t_storage_context sc;
     {
         char base_dir[FNAME_LEN];
         char* bd = getcwd(base_dir, FNAME_LEN);
 
         KLS_IO_CHECK(bd, "cannot get current working directory");
-        kls_st_init(base_dir, write_mode);
+        kls_st_init(&sc, base_dir, "", write_mode);
     }
 
     {
@@ -93,10 +103,10 @@ int main(int argc, char** arg)
             exit(EX_USAGE);
             break;
         case KLS_COMMAND_INDEX:
-            cmd_index();
+            cmd_index(&sc);
             break;
         case KLS_COMMAND_GET:
-            cmd_get(word);
+            cmd_get(&sc, word);
             break;
         }
     }

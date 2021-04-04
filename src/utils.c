@@ -41,7 +41,7 @@ char* kls_ut_load_file(const char* name, uint64_t* fs)
 
     if (sz > 0)
     {
-        res = malloc(sz);
+        res = kls_ut_malloc(sz);
         size_t rs = fread(res, sz, 1, f);
         KLS_IO_CHECK(rs == 1, "couldn't read %s", name);
     }
@@ -106,4 +106,24 @@ bool kls_ut_is_word(char* w)
         w++;
     }
     return 1;
+}
+
+uint64_t allocated = 0;
+uint64_t peak_allocated = 0;
+
+
+char* kls_ut_malloc(size_t size)
+{
+    allocated += size;
+    KLS_CHECK(allocated < MAX_DYNAMIC_MEMORY_SIZE, KLS_LIMIT_EXCEEDED,
+              "allowed memory is full, adjust MAX_DYNAMIC_MEMORY_SIZE");
+    peak_allocated = peak_allocated > allocated ? peak_allocated : 
+        allocated;
+    return malloc(size);
+}
+
+void kls_ut_free(void* ptr, size_t size)
+{
+    allocated -= size;
+    free(ptr);
 }

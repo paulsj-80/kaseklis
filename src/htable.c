@@ -11,9 +11,9 @@
 void free_item(struct t_kls_ht_item* item, bool completely)
 {
     if (item->id)
-        free(item->id);
+        kls_ut_free(item->id, strlen(item->id) + 1);
     if (completely)
-        free(item);
+        kls_ut_free(item, sizeof(struct t_kls_ht_item));
 }
 
 t_hash get_hash(struct t_kls_ht_context* ht, const unsigned char *str)
@@ -25,7 +25,7 @@ void kls_ht_create(struct t_kls_ht_context* ht, t_hash size)
 {
     memset(ht, 0, sizeof(struct t_kls_ht_context));
     t_hash hsize = sizeof(struct t_kls_ht_item_0) * size;
-    ht->items = (struct t_kls_ht_item_0*)malloc(hsize);
+    ht->items = (struct t_kls_ht_item_0*)kls_ut_malloc(hsize);
     LOGI("hash table byte size is %d", hsize);
     ht->size = size;
     memset(ht->items, 0, hsize);
@@ -45,7 +45,7 @@ void kls_ht_destroy(struct t_kls_ht_context* ht)
             j = tmp;
         }
     }
-    free(ht->items);
+    kls_ut_free(ht->items, ht->size);
 }
 
 void kls_ht_dump(struct t_kls_ht_context* ht, bool omit_empty) 
@@ -156,9 +156,10 @@ bool kls_ht_put(struct t_kls_ht_context* ht, const char* id,
     {
         if (p0) 
         {
-            p = (struct t_kls_ht_item*)malloc(sizeof(struct t_kls_ht_item));
+            p = (struct t_kls_ht_item*)kls_ut_malloc(
+                        sizeof(struct t_kls_ht_item));
             memset(p, 0, sizeof(struct t_kls_ht_item));
-            p->id = malloc(strlen(id) + 1); 
+            p->id = kls_ut_malloc(strlen(id) + 1); 
             strcpy(p->id, id);
             p->occ_pos = occ_pos;
             *prev_occ_pos = 0;
@@ -169,7 +170,7 @@ bool kls_ht_put(struct t_kls_ht_context* ht, const char* id,
             KLS_ASSERT(zero_p->item.id == 0, 
                        "hash array not initialized or corrupted");
             zero_p->item.occ_pos = occ_pos;
-            zero_p->item.id = malloc(strlen(id) + 1); 
+            zero_p->item.id = kls_ut_malloc(strlen(id) + 1); 
             strcpy(zero_p->item.id, id);
             *prev_occ_pos = 0;
         }

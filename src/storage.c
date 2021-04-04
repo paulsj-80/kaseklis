@@ -3,216 +3,209 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #include "htable.h"
 #include "exit_codes.h"
 
 
-#define OCC_FILE_ITEM_COUNT (1024 * 128)
-#define HT_SIZE (1024 * 1024)
-
-#define FILES_FILE0_ITEM_SIZE (sizeof(t_file_id) + 1 + sizeof(t_occ_id))
-
-static char* base_dir = 0;
-static size_t base_dir_len = 0;
-static char* kls_dir = 0;
-
-static char* words_file0 = 0;
-static char* words_file1 = 0;
-static char* files_file0 = 0;
-static char* files_file1 = 0;
-static char* index_log_file = 0;
-static char* nested_file = 0;
-
-static FILE* files_ptr0 = 0;
-static FILE* files_ptr1 = 0;
-static FILE* nested_ptr = 0;
-
-static t_file_id files_ptr1_written = 0;
-static t_occ_id occ_buff[OCC_FILE_ITEM_COUNT];
-static t_occ_id occ_buff_count = 0;
-static t_occ_file_id occ_file_count = 0;
-static t_file_id file_count = 0;
-static struct t_kls_ht_context * ht = 0;
-static t_occ_id total_occ_count = 0;
-static t_occ_id first_occ_in_file = 0;
-
-static char fname_to_write[FNAME_LEN];
-static bool is_binary_to_write;
-
-void get_occ_fname(char* buff, t_occ_file_id num)
+void get_occ_fname(char* buff, t_occ_file_id num, char* kls_dir)
 {
     int rc = snprintf(buff, FNAME_LEN, "%s/occ.%u.dat", kls_dir, 
                       num);
     PATH_POSTPRINT_CHECK_U(buff, num, rc);
 }
 
-int remove_occ_file(int num)
+int remove_occ_file(int num, char* kls_dir)
 {
     char occ_file_name[FNAME_LEN];
-    get_occ_fname(occ_file_name, num);
+    get_occ_fname(occ_file_name, num, kls_dir);
     return remove(occ_file_name);
 }
 
-void kls_st_init(const char* base_dir0, bool purge)
+void kls_st_init(struct t_storage_context* sc, const char* base_dir0, 
+                 char* output_file_prefix, bool purge)
 {
-    base_dir = kls_ut_concat_fnames(base_dir0, "");
-    base_dir_len = strlen(base_dir);
-    kls_dir = kls_ut_concat_fnames(base_dir, kls_ut_subdir);
+    memset((char*)sc, 0, sizeof(struct t_storage_context));
 
-    words_file0 = kls_ut_concat_fnames(kls_dir, "/words0.dat");
-    words_file1 = kls_ut_concat_fnames(kls_dir, "/words1.dat");
+    KLS_IO_CHECK(getcwd(sc->prev_cwd, FNAME_LEN), 
+        "cannot get current working directory");
+    KLS_IO_CHECK(chdir(base_dir0) == 0, 
+                 "could not chdir to %s", base_dir0);
 
-    files_file0 = kls_ut_concat_fnames(kls_dir, "/files0.dat");
-    files_file1 = kls_ut_concat_fnames(kls_dir, "/files1.dat");
+    strcpy(sc->output_file_prefix, output_file_prefix);
 
-    index_log_file = kls_ut_concat_fnames(kls_dir, "/index.log");
+    sc->base_dir = kls_ut_concat_fnames(base_dir0, "");
+    sc->base_dir_len = strlen(sc->base_dir);
+    sc->kls_dir = kls_ut_concat_fnames(sc->base_dir, kls_ut_subdir);
 
-    nested_file = kls_ut_concat_fnames(kls_dir, "/nested.txt");
+    sc->words_file0 = kls_ut_concat_fnames(sc->kls_dir, "/words0.dat");
+    sc->words_file1 = kls_ut_concat_fnames(sc->kls_dir, "/words1.dat");
+
+    sc->files_file0 = kls_ut_concat_fnames(sc->kls_dir, "/files0.dat");
+    sc->files_file1 = kls_ut_concat_fnames(sc->kls_dir, "/files1.dat");
+
+    sc->index_log_file = kls_ut_concat_fnames(sc->kls_dir, "/index.log");
+
+    sc->nested_file = kls_ut_concat_fnames(sc->kls_dir, "/nested.txt");
     
     if (purge) 
     {
         LOGI("purge");
-        remove(words_file0);
-        remove(words_file1);
-        remove(files_file0);
-        remove(files_file1);
-        remove(index_log_file);
-        remove(nested_file);
+        remove(sc->words_file0);
+        remove(sc->words_file1);
+        remove(sc->files_file0);
+        remove(sc->files_file1);
+        remove(sc->index_log_file);
+        remove(sc->nested_file);
         size_t i = 0;
-        while (remove_occ_file(i++) == 0);
+        while (remove_occ_file(i++, sc->kls_dir) == 0);
 
-        mkdir(kls_dir, 0700);
+        mkdir(sc->kls_dir, 0700);
 
-        kls_ut_init_log_file(index_log_file);
+        kls_ut_init_log_file(sc->index_log_file);
 
-        files_ptr0 = fopen(files_file0, "w");
-        KLS_IO_CHECK(files_ptr0, "cannot open for write %s", 
-                     files_file0);
-        files_ptr1 = fopen(files_file1, "w");
-        KLS_IO_CHECK(files_ptr1, "cannot open for write %s", 
-                     files_file1);
-        nested_ptr = fopen(nested_file, "w");
-        KLS_IO_CHECK(nested_ptr, "cannot open for write %s", 
-                     nested_file);
+        sc->files_ptr0 = fopen(sc->files_file0, "w");
+        KLS_IO_CHECK(sc->files_ptr0, "cannot open for write %s", 
+                     sc->files_file0);
+        sc->files_ptr1 = fopen(sc->files_file1, "w");
+        KLS_IO_CHECK(sc->files_ptr1, "cannot open for write %s", 
+                     sc->files_file1);
+        sc->nested_ptr = fopen(sc->nested_file, "w");
+        KLS_IO_CHECK(sc->nested_ptr, "cannot open for write %s", 
+                     sc->nested_file);
 
-        memset(occ_buff, 0, sizeof(t_occ_id) * OCC_FILE_ITEM_COUNT);
-
-        ht = (struct t_kls_ht_context*)malloc(
-                     sizeof(struct t_kls_ht_context));
-        kls_ht_create(ht, HT_SIZE);
+        sc->ht = (struct t_kls_ht_context*)kls_ut_malloc(
+                         sizeof(struct t_kls_ht_context));
+        kls_ht_create(sc->ht, HT_SIZE);
 
         // reserved for chain ends
-        occ_buff[occ_buff_count++] == 0xffffffff;
-        total_occ_count++;
-        first_occ_in_file = 1;
+        sc->occ_buff[sc->occ_buff_count++] == 0xffffffff;
+        sc->total_occ_count++;
+        sc->first_occ_in_file = 1;
     }
 }
 
-void flush_occ_buff(int force)
+void flush_occ_buff(struct t_storage_context* sc, int force)
 {
-    if ((occ_buff_count == OCC_FILE_ITEM_COUNT || force) && 
-        occ_buff_count > 0)
+    if ((sc->occ_buff_count == OCC_FILE_ITEM_COUNT || force) && 
+        sc->occ_buff_count > 0)
     {
-        occ_buff_count = 0;
+        sc->occ_buff_count = 0;
         char buff[FNAME_LEN];
-        get_occ_fname(buff, occ_file_count);
+        get_occ_fname(buff, sc->occ_file_count, sc->kls_dir);
         FILE* f = fopen(buff, "w");
-        if (fwrite(occ_buff, sizeof(t_occ_id), 
-                   OCC_FILE_ITEM_COUNT, f) != OCC_FILE_ITEM_COUNT)
-        {
-            LOGE("couldn't write file %s", buff);
-            exit(EX_IOERR);
-        }
+        KLS_IO_CHECK(fwrite(sc->occ_buff, sizeof(t_occ_id) * 
+                            OCC_FILE_ITEM_COUNT, 
+                            1, f) == 1, "couldn't write file %s", buff);
 
         fclose(f);
-        occ_file_count++;
-        memset(occ_buff, 0, sizeof(t_occ_id) * OCC_FILE_ITEM_COUNT);
+        sc->occ_file_count++;
+        memset(sc->occ_buff, 0, sizeof(t_occ_id) * OCC_FILE_ITEM_COUNT);
     }
 }
 
-void kls_st_finish(bool sync_to_hdd)
+
+void kls_st_finish(struct t_storage_context* sc, bool sync_to_hdd)
 {
     if (sync_to_hdd)
-        flush_occ_buff(1);
-    if (ht)
+        flush_occ_buff(sc, 1);
+    if (sc->ht)
     {
-        kls_ht_dump_stats(ht);
+        kls_ht_dump_stats(sc->ht);
+        LOGI("peak dynamic memory usage: %lu", peak_allocated);
         if (sync_to_hdd)
-            kls_ht_write(ht, words_file0, words_file1);
-        kls_ht_destroy(ht);
-        free(ht);
+            kls_ht_write(sc->ht, sc->words_file0, sc->words_file1);
+        kls_ht_destroy(sc->ht);
+        kls_ut_free(sc->ht, sizeof(struct t_kls_ht_context));
     }
-    if (files_ptr0)
-        fclose(files_ptr0);
-    if (files_ptr1)
-        fclose(files_ptr1);
-    if (nested_ptr)
-        fclose(nested_ptr);
+    if (sc->files_ptr0)
+        fclose(sc->files_ptr0);
+    if (sc->files_ptr1)
+        fclose(sc->files_ptr1);
+    if (sc->nested_ptr)
+        fclose(sc->nested_ptr);
+
+#define DO_FREE(_name) if (sc->_name) free(sc->_name);
+
+    DO_FREE(base_dir);
+    DO_FREE(kls_dir);
+    DO_FREE(words_file0);
+    DO_FREE(words_file1);
+    DO_FREE(files_file0);
+    DO_FREE(files_file1);
+    DO_FREE(index_log_file);
+    DO_FREE(nested_file);
+
+    KLS_IO_CHECK(chdir(sc->prev_cwd) == 0, 
+                 "could not chdir to %s", sc->prev_cwd);
 }
 
-char* kls_st_get_base_dir()
+char* kls_st_get_base_dir(struct t_storage_context* sc)
 {
-    return base_dir;
+    return sc->base_dir;
 }
 
-void kls_st_add_file(const char* file, bool is_binary)
+void kls_st_add_file(struct t_storage_context* sc, 
+                     const char* file, bool is_binary)
 {
     // writing happens when file is done, as it could be empty
     // (empty files are omitted)
-    const char* relative_file = file + base_dir_len + 1;
-    strcpy(fname_to_write, relative_file);
-    is_binary_to_write = is_binary;
+    const char* relative_file = file + sc->base_dir_len + 1;
+    strcpy(sc->fname_to_write, relative_file);
+    sc->is_binary_to_write = is_binary;
 }
 
-void kls_st_file_done()
+void kls_st_file_done(struct t_storage_context* sc)
 {
-    if (total_occ_count > first_occ_in_file)
+    if (sc->total_occ_count > sc->first_occ_in_file)
     {
         // file had some word in it
 
-        t_file_id ds = strlen(fname_to_write) + 1;
-        KLS_IO_CHECK(fwrite(fname_to_write, ds, 1, files_ptr1) == 1,
-                     "couldn't write %s", files_file1);
+        t_file_id ds = strlen(sc->fname_to_write) + 1;
+        KLS_IO_CHECK(fwrite(sc->fname_to_write, ds, 1, 
+                            sc->files_ptr1) == 1,
+                     "couldn't write %s", sc->files_file1);
 
-        KLS_IO_CHECK(fwrite(&files_ptr1_written, 
-                            sizeof(files_ptr1_written),
-                            1, files_ptr0) == 1,
-                     "couldn't write %s", files_file0);
-        files_ptr1_written += ds;
+        KLS_IO_CHECK(fwrite(&sc->files_ptr1_written, 
+                            sizeof(sc->files_ptr1_written),
+                            1, sc->files_ptr0) == 1,
+                     "couldn't write %s", sc->files_file0);
+        sc->files_ptr1_written += ds;
         
-        char bb = (char)is_binary_to_write;
-        KLS_IO_CHECK(fwrite(&bb, 1, 1, files_ptr0) == 1,
-                     "couldn't write %s", files_file0);
+        char bb = (char)sc->is_binary_to_write;
+        KLS_IO_CHECK(fwrite(&bb, 1, 1, sc->files_ptr0) == 1,
+                     "couldn't write %s", sc->files_file0);
 
-        t_occ_id tmp = total_occ_count - 1;
-        KLS_IO_CHECK(fwrite(&tmp, sizeof(tmp), 1, files_ptr0) == 1, 
-                     "couldn't write %s", files_file0);
-        first_occ_in_file = total_occ_count;
+        t_occ_id tmp = sc->total_occ_count - 1;
+        KLS_IO_CHECK(fwrite(&tmp, sizeof(tmp), 1, sc->files_ptr0) == 1, 
+                     "couldn't write %s", sc->files_file0);
+        sc->first_occ_in_file = sc->total_occ_count;
     }
 }
 
-void kls_st_add_word(const char* word)
+void kls_st_add_word(struct t_storage_context* sc, const char* word)
 {
     t_occ_id prev_occ_pos;
-    if (kls_ht_put(ht, word, total_occ_count, &prev_occ_pos, 
-                   first_occ_in_file))
+    if (kls_ht_put(sc->ht, word, sc->total_occ_count, &prev_occ_pos, 
+                   sc->first_occ_in_file))
     {
-        occ_buff[occ_buff_count++] = prev_occ_pos;
-        flush_occ_buff(0);
-        total_occ_count++;
+        sc->occ_buff[sc->occ_buff_count++] = prev_occ_pos;
+        flush_occ_buff(sc, 0);
+        sc->total_occ_count++;
     }
 }
 
-void kls_st_nested_ignored(const char* fname)
+void kls_st_nested_ignored(struct t_storage_context* sc, 
+                           const char* fname)
 {
-    fwrite(fname, 1, strlen(fname), nested_ptr);
+    fwrite(fname, 1, strlen(fname), sc->nested_ptr);
     static const char newline = '\n';
-    fwrite(&newline, 1, 1, nested_ptr);
+    fwrite(&newline, 1, 1, sc->nested_ptr);
 }
 
-void dump_nested_for(const char* word)
+void dump_nested_for(struct t_storage_context* sc, const char* word)
 {
-    FILE* f = fopen(nested_file, "r");
+    FILE* f = fopen(sc->nested_file, "r");
 
     char buff[FNAME_LEN + 1];
     memset(buff, 0, FNAME_LEN + 1);
@@ -224,23 +217,25 @@ void dump_nested_for(const char* word)
         size_t cr = fread(&c, 1, 1, f);
         KLS_CHECK(cr || !buff_pos, 
                   BAD_FILE_OBJECT,
-                  "file is not properly formed %s", nested_file);
+                  "file is not properly formed %s", sc->nested_file);
         if (feof(f))
             break;
 
-        KLS_IO_CHECK(cr, "cannot read %s", nested_file);
+        KLS_IO_CHECK(cr, "cannot read %s", sc->nested_file);
         KLS_CHECK(c, BAD_FILE_OBJECT, "bad character in %s",
-                  nested_file)
+                  sc->nested_file)
 
         if (c == '\n')
         {
             if (buff_pos > 0)
             {
                 buff[buff_pos] = 0;
-                char cmd_buff[FNAME_LEN * 2];
-                snprintf(cmd_buff, FNAME_LEN, 
-                         "cd %s && kaseklis get %s", 
-                         buff, word);
+
+                struct t_storage_context sc2;
+                kls_st_init(&sc2, buff, buff + sc->base_dir_len + 1, 0);
+                kls_st_dump_index_for(&sc2, word);
+                kls_st_finish(&sc2, 0);
+
                 buff_pos = 0;
             }
         }
@@ -283,14 +278,16 @@ void read_fd0(char* data,
     }
 }
 
-uint64_t print_line(char* data, uint64_t curr_index, uint64_t line_start, 
-                    char* fname, uint32_t line_number)
+uint64_t print_line(char* data, uint64_t curr_index, 
+                    uint64_t line_start, 
+                    char* fname, uint32_t line_number,
+                    char* prefix)
 {
     uint64_t res = 0;
     uint64_t line_len = curr_index - line_start;
     if (line_len > MAX_DISPLAYABLE_LINE_LENGTH)
     {
-        printf("LONG %s:%u\n", fname, line_number);
+        printf("LONG %s/%s:%u\n", prefix, fname, line_number);
         res++;
     }
     else
@@ -301,12 +298,13 @@ uint64_t print_line(char* data, uint64_t curr_index, uint64_t line_start,
         ll[line_len] = 0;
         if (line_len > 1)
             res++;
-        printf("%s:%u %s\n", fname, line_number, ll);
+        printf("%s/%s:%u %s\n", prefix, fname, line_number, ll);
     }
     return res;
 }
 
-void find_word_in(char* fname, const char* word)
+void find_word_in(struct t_storage_context* sc,
+                  char* fname, const char* word)
 {
     uint64_t size;
     char* data = kls_ut_load_file(fname, &size);
@@ -323,6 +321,7 @@ void find_word_in(char* fname, const char* word)
     uint64_t line_start = 0;
     uint64_t i;
     uint64_t results_printed = 0;
+    bool prev_was_letter = 0;
 
     for (i = 0; i < size; i++)
     {
@@ -330,8 +329,9 @@ void find_word_in(char* fname, const char* word)
         switch (state)
         {
         case 0:
-            {
-                if (c == word[good_char_count])
+            {                
+                if ((!prev_was_letter || good_char_count > 0) && 
+                    c == word[good_char_count])
                 {
                     good_char_count++;
 
@@ -344,12 +344,16 @@ void find_word_in(char* fname, const char* word)
                 else
                 {
                     good_char_count = 0;
+
                     if (c == '\n') 
                     {
                         line_start = i + 1;
                         line_number++;
                     }
                 }
+
+                prev_was_letter = kls_ut_is_letter(c) || 
+                    (good_char_count > 0 && kls_ut_is_number(c));
                 break;
             }
         case 1:
@@ -357,11 +361,13 @@ void find_word_in(char* fname, const char* word)
                 if (c == '\n')
                 {
                     results_printed += print_line(data, i, line_start, 
-                                                  fname, line_number);
+                                                  fname, line_number,
+                                                  sc->output_file_prefix);
                     line_start = i + 1;
                     line_number++;
                     good_char_count = 0;
                     state = 0;
+                    prev_was_letter = 0;
                 }
             
                 break;
@@ -371,7 +377,8 @@ void find_word_in(char* fname, const char* word)
 
     if (state == 1)
         results_printed += print_line(data, i, line_start, fname, 
-                                      line_number);
+                                      line_number, 
+                                      sc->output_file_prefix);
 
     if (!results_printed)
         LOGW("EMPTY %s", fname);
@@ -380,30 +387,31 @@ void find_word_in(char* fname, const char* word)
 }
 
 
-void kls_st_dump_index_for(const char* word0)
+void kls_st_dump_index_for(struct t_storage_context* sc, 
+                           const char* word0)
 {
     char word[MAX_WORD_LEN + 1];
     memset(word, 0, MAX_WORD_LEN + 1);
     strncpy(word, word0, MAX_WORD_LEN);
-    dump_nested_for(word);
+    dump_nested_for(sc, word);
 
     t_occ_id occ_pos;
-    if (!kls_ht_get_occ_id(word, words_file0, words_file1, &occ_pos,
-                           HT_SIZE))
+    if (!kls_ht_get_occ_id(word, sc->words_file0, sc->words_file1, 
+                           &occ_pos, HT_SIZE))
         return;
     bool has_occ_file;
     t_occ_file_id curr_occ_file_index;
 
     uint64_t ff0_size, tmp;
-    char* files_data0 = kls_ut_load_file(files_file0, &ff0_size);
-    char* files_data1 = kls_ut_load_file(files_file1, &tmp);
+    char* files_data0 = kls_ut_load_file(sc->files_file0, &ff0_size);
+    char* files_data1 = kls_ut_load_file(sc->files_file1, &tmp);
 
     if (ff0_size == 0)
         return;
 
     KLS_CHECK(ff0_size % FILES_FILE0_ITEM_SIZE == 0, 
               BAD_FILE_OBJECT,
-              "bad file size %s", files_file0);
+              "bad file size %s", sc->files_file0);
     t_file_id curr_file_pos = ff0_size / FILES_FILE0_ITEM_SIZE - 1;
 
     while (occ_pos > 0)
@@ -421,7 +429,7 @@ void kls_st_dump_index_for(const char* word0)
                 printf("Binary file %s matches\n", fname);
             else
             {
-                find_word_in(fname, word0);
+                find_word_in(sc, fname, word0);
             }
         }
         
@@ -433,11 +441,11 @@ void kls_st_dump_index_for(const char* word0)
             if (!has_occ_file || occ_file_index != curr_occ_file_index)
             {
                 char fbuff[FNAME_LEN];
-                get_occ_fname(fbuff, occ_file_index);
+                get_occ_fname(fbuff, occ_file_index, sc->kls_dir);
 
                 FILE* f = fopen(fbuff, "r");
                 KLS_IO_CHECK(f, "couldn't open %s", fbuff);
-                KLS_IO_CHECK(fread((char*)occ_buff, 
+                KLS_IO_CHECK(fread((char*)sc->occ_buff, 
                                    sizeof(t_occ_id) * 
                                    OCC_FILE_ITEM_COUNT, 
                                    1, f) == 1, 
@@ -446,7 +454,7 @@ void kls_st_dump_index_for(const char* word0)
                 curr_occ_file_index = occ_file_index;
                 has_occ_file = 1;
             }
-            occ_pos = occ_buff[occ_file_offset];
+            occ_pos = sc->occ_buff[occ_file_offset];
         }
     }
 

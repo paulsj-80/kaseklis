@@ -19,9 +19,13 @@ extern FILE* kls_ut_log_file_ptr;
 
 // KLS05012
 #define FNAME_LEN 4096
-#define MAX_INDEXABLE_FILE_SIZE 1024 * 1024
+
+#define MAX_INDEXABLE_FILE_SIZE (1024 * 1024)
 #define MAX_WORD_LEN 30
 #define MAX_DISPLAYABLE_LINE_LENGTH 4096
+
+// 16 Gb by default
+#define MAX_DYNAMIC_MEMORY_SIZE (1024l * 1024l * 1024l * 16l)
 
 // those have to be unsigned
 typedef uint32_t t_occ_id;
@@ -61,5 +65,14 @@ extern const char* ignored_flag;
 bool kls_ut_is_letter(char c);
 bool kls_ut_is_number(char c);
 bool kls_ut_is_word(char* w);
+
+
+extern uint64_t allocated;
+extern uint64_t peak_allocated;
+
+// no safety checks; use them only where it makes sense for collecting
+// stats and ensuring memory is not overfilled
+char* kls_ut_malloc(size_t size);
+void kls_ut_free(void* ptr, size_t size);
 
 #endif

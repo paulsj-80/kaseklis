@@ -4,7 +4,6 @@
 #include <dirent.h>
 #include <stdio.h>
 #include <string.h>
-#include "storage.h"
 #include "file_proc.h"
 #include "utils.h"
 
@@ -44,7 +43,8 @@ void kaseklis_flags(const char *name,
     closedir(dir);
 }
 
-void kls_wr_walk(const char* name, bool is_root)
+void kls_wr_walk(struct t_storage_context* sc, 
+                 const char *name, bool is_root)
 {
     bool is_kaseklis, has_kaseklis, is_ignored;
     kaseklis_flags(name, &is_kaseklis, &has_kaseklis, &is_ignored);
@@ -54,7 +54,7 @@ void kls_wr_walk(const char* name, bool is_root)
 
     if (has_kaseklis && !is_root)
     {
-        kls_st_nested_ignored(name);
+        kls_st_nested_ignored(sc, name);
         if (!is_ignored)
             LOGI("ignoring %s as being indexed separately", name);
         return;
@@ -77,20 +77,26 @@ void kls_wr_walk(const char* name, bool is_root)
             if (strcmp(entry->d_name, ".") == 0 || 
                 strcmp(entry->d_name, "..") == 0)
                 continue;
+
             int rc = snprintf(path, sizeof(path), "%s/%s", name, 
                               entry->d_name);
+            if (entry->d_name[0] == '.')
+            {
+                LOGI("ignoring %s", path);
+                continue;
+            }
+
             PATH_POSTPRINT_CHECK(path, entry->d_name, rc);
-            kls_wr_walk(path, 0);
+            kls_wr_walk(sc, path, 0);
         } 
         else 
         {
             int rc = snprintf(path, sizeof(path), "%s/%s", name, 
                               entry->d_name);
             PATH_POSTPRINT_CHECK(path, entry->d_name, rc);
-            kls_fp_process(path);
+            kls_fp_process(sc, path);
         }
     }
     closedir(dir);
 }
-
 
