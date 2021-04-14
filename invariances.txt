@@ -23,7 +23,10 @@ KLS01012 index files should be kept small, but it is not main priority,
          KLS01009)
 KLS01013 code and interface should be simple to allow customizations 
          (as per KLS01000)
-
+KLS01014 command line should have as few options as possible, relying
+         on possibility to pipe output to various Linux shell utilities,
+         doing necessary adjustments (KLS01013)
+         
 --- definitions
 KLS02000 letters are 'a'-'z' or 'A'-'Z'
 KLS02001 underline is '_'
