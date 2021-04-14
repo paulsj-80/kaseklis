@@ -410,7 +410,7 @@ void kls_st_dump_index_for(struct t_storage_context* sc,
     if (!kls_ht_get_occ_id(word, sc->words_file0, sc->words_file1, 
                            &occ_pos, HT_SIZE))
         return;
-    bool has_occ_file;
+    bool has_occ_file = 0;
     t_occ_file_id curr_occ_file_index;
 
     uint64_t ff0_size, tmp;
