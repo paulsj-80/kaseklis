@@ -404,9 +404,14 @@ void find_word_in(struct t_storage_context* sc,
 void kls_st_dump_index_for(struct t_storage_context* sc, 
                            const char* word0)
 {
+
     char word[MAX_WORD_LEN + 1];
     memset(word, 0, MAX_WORD_LEN + 1);
     strncpy(word, word0, MAX_WORD_LEN);
+
+    if (strlen(word0) > MAX_WORD_LEN)
+        LOGW("too long word, truncating for index-search to %s", word);
+
     dump_nested_for(sc, word);
 
     t_occ_id occ_pos;
