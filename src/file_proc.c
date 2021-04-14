@@ -98,9 +98,9 @@ void process_char(struct t_file_processor* fp, char c)
         {
             if (word_can_add)
                 fp->curr_word[fp->curr_word_len] = c;
+            fp->curr_word_len++;
             if (word_just_filled)
                 word_found(fp);
-            fp->curr_word_len++;
         }
     }
 }
