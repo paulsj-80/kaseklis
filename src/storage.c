@@ -206,6 +206,9 @@ void kls_st_nested_ignored(struct t_storage_context* sc,
 {
     // KLS03011, KLS03013
     fwrite(fname, 1, strlen(fname), sc->nested_ptr);
+
+    static const char separator = '/';
+    fwrite(&separator, 1, 1, sc->nested_ptr);
     static const char newline = '\n';
     fwrite(&newline, 1, 1, sc->nested_ptr);
 }
@@ -307,7 +310,7 @@ uint64_t print_line(char* data, uint64_t curr_index,
         ll[line_len] = 0;
         if (line_len > 1)
             res++;
-        printf("%s/%s:%u %s\n", prefix, fname, line_number, ll);
+        printf("%s%s:%u %s\n", prefix, fname, line_number, ll);
     }
     return res;
 }
