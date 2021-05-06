@@ -54,11 +54,16 @@ void kls_wr_walk(struct t_storage_context* sc,
 
     if (has_kaseklis && !is_root)
     {
-        // KLS03008, KLS03009
-        kls_st_nested_ignored(sc, name);
         // KLS03007
         if (!is_ignored)
+        {
             LOGI("ignoring %s as being indexed separately", name);
+            // KLS03008, KLS03009
+            kls_st_nested_ignored(sc, name);
+        }
+        else
+            LOGI("ignoring %s as being flagged", name);
+
         return;
     }
 
