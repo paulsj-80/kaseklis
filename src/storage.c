@@ -217,6 +217,8 @@ void dump_nested_for(struct t_storage_context* sc, const char* word)
 {
     FILE* f = fopen(sc->nested_file, "r");
 
+    KLS_IO_CHECK(f, "cannot open for read %s", sc->nested_file);
+
     char buff[FNAME_LEN + 1];
     memset(buff, 0, FNAME_LEN + 1);
     int buff_pos = 0;
