@@ -300,8 +300,8 @@ uint64_t print_line(char* data, uint64_t curr_index,
     uint64_t line_len = curr_index - line_start;
     if (line_len > MAX_DISPLAYABLE_LINE_LENGTH)
     {
-        // KLS06002
-        printf("LONG %s/%s:%u\n", prefix, fname, line_number);
+        // KLS06002, KLS06006, KLS06005
+        printf(YEL "LONG" YEL " ./%s%s:%u\n", prefix, fname, line_number);
         res++;
     }
     else
@@ -312,7 +312,8 @@ uint64_t print_line(char* data, uint64_t curr_index,
         ll[line_len] = 0;
         if (line_len > 1)
             res++;
-        printf("%s%s:%u %s\n", prefix, fname, line_number, ll);
+        // KLS06006, KLS06005
+        printf(GRN "./%s%s:%u " RESET "%s\n", prefix, fname, line_number, ll);
     }
     return res;
 }
@@ -449,7 +450,7 @@ void kls_st_dump_index_for(struct t_storage_context* sc,
 
             if (is_binary)
                 // KLS01005, KLS06000
-                printf("Binary file %s matches\n", fname);
+                printf("BINARY %s\n", fname);
             else
             {
                 if (access(fname, F_OK) == 0)

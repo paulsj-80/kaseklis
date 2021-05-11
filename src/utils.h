@@ -6,13 +6,22 @@
 #include <stdlib.h>
 #include "exit_codes.h"
 
+#define RED   "\x1B[31m"
+#define GRN   "\x1B[32m"
+#define YEL   "\x1B[33m"
+#define BLU   "\x1B[34m"
+#define MAG   "\x1B[35m"
+#define CYN   "\x1B[36m"
+#define WHT   "\x1B[37m"
+#define RESET "\x1B[0m"
+
 // KLS03000
 extern FILE* kls_ut_log_file_ptr;
 
-// KLS07000
-#define LOGI(_msg, ...) {fprintf(stderr, "INFO %s:%d " _msg "\n", __FILE__, __LINE__, ##__VA_ARGS__); if (kls_ut_log_file_ptr) fprintf(kls_ut_log_file_ptr, "INFO %s:%d " _msg "\n", __FILE__, __LINE__, ##__VA_ARGS__);}
-#define LOGW(_msg, ...) {fprintf(stderr, "WARN %s:%d " _msg "\n", __FILE__, __LINE__, ##__VA_ARGS__); if (kls_ut_log_file_ptr) fprintf(kls_ut_log_file_ptr, "WARN %s:%d " _msg "\n", __FILE__, __LINE__, ##__VA_ARGS__);}
-#define LOGE(_msg, ...) {fprintf(stderr, "ERROR %s:%d " _msg "\n", __FILE__, __LINE__, ##__VA_ARGS__); if (kls_ut_log_file_ptr) fprintf(kls_ut_log_file_ptr, "ERROR %s:%d " _msg "\n", __FILE__, __LINE__, ##__VA_ARGS__);}
+// KLS07000, KLS06006
+#define LOGI(_msg, ...) {fprintf(stderr, BLU "INFO" RESET " %s:%d " _msg "\n", __FILE__, __LINE__, ##__VA_ARGS__); if (kls_ut_log_file_ptr) fprintf(kls_ut_log_file_ptr, "INFO %s:%d " _msg "\n", __FILE__, __LINE__, ##__VA_ARGS__);}
+#define LOGW(_msg, ...) {fprintf(stderr, YEL "WARN" RESET " %s:%d " _msg "\n", __FILE__, __LINE__, ##__VA_ARGS__); if (kls_ut_log_file_ptr) fprintf(kls_ut_log_file_ptr, "WARN %s:%d " _msg "\n", __FILE__, __LINE__, ##__VA_ARGS__);}
+#define LOGE(_msg, ...) {fprintf(stderr, RED "ERROR" RESET " %s:%d " _msg "\n", __FILE__, __LINE__, ##__VA_ARGS__); if (kls_ut_log_file_ptr) fprintf(kls_ut_log_file_ptr, "ERROR %s:%d " _msg "\n", __FILE__, __LINE__, ##__VA_ARGS__);}
 
 #define KLS_CHECK(_expr, _exit_code, _msg, ...) if (!(_expr)) { LOGE("check fail: " _msg, ##__VA_ARGS__); exit(_exit_code); }
 #define KLS_ASSERT(_expr, _msg, ...) KLS_CHECK(_expr, KLS_ASSERT_FAIL, _msg, ##__VA_ARGS__)

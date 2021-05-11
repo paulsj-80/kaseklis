@@ -138,6 +138,10 @@ KLS06003 only first 30 characters of word to retrieve are significant
 KLS06004 successful indexing log contains some header data, then data
          produced during indexing process, then some statistics; idea is
          to have information available in case of premature exit
+KLS06005 each occurence starts with file name or message token (INFO,
+         LONG, etc.); file name starts with ./
+KLS06006 output is colored; file names are green, warnings are yellow,
+         errors are red, infos are blue
 
 --- error logs
 KLS07000 indexing log is both sent to stderr and saved into 
