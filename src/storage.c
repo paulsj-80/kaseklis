@@ -301,7 +301,7 @@ uint64_t print_line(char* data, uint64_t curr_index,
     if (line_len > MAX_DISPLAYABLE_LINE_LENGTH)
     {
         // KLS06002, KLS06006, KLS06005
-        printf(YEL "LONG" YEL " ./%s%s:%u\n", prefix, fname, line_number);
+        printf(YEL "LONG" RESET " ./%s%s:%u\n", prefix, fname, line_number);
         res++;
     }
     else
