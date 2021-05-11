@@ -10,9 +10,9 @@
 extern FILE* kls_ut_log_file_ptr;
 
 // KLS07000
-#define LOGI(_msg, ...) fprintf(stderr, "INFO %s:%d " _msg "\n", __FILE__, __LINE__, ##__VA_ARGS__); if (kls_ut_log_file_ptr) fprintf(kls_ut_log_file_ptr, "INFO %s:%d " _msg "\n", __FILE__, __LINE__, ##__VA_ARGS__);
-#define LOGW(_msg, ...) fprintf(stderr, "WARN %s:%d " _msg "\n", __FILE__, __LINE__, ##__VA_ARGS__); if (kls_ut_log_file_ptr) fprintf(kls_ut_log_file_ptr, "WARN %s:%d " _msg "\n", __FILE__, __LINE__, ##__VA_ARGS__);
-#define LOGE(_msg, ...) fprintf(stderr, "ERROR %s:%d " _msg "\n", __FILE__, __LINE__, ##__VA_ARGS__); if (kls_ut_log_file_ptr) fprintf(kls_ut_log_file_ptr, "ERROR %s:%d " _msg "\n", __FILE__, __LINE__, ##__VA_ARGS__);
+#define LOGI(_msg, ...) {fprintf(stderr, "INFO %s:%d " _msg "\n", __FILE__, __LINE__, ##__VA_ARGS__); if (kls_ut_log_file_ptr) fprintf(kls_ut_log_file_ptr, "INFO %s:%d " _msg "\n", __FILE__, __LINE__, ##__VA_ARGS__);}
+#define LOGW(_msg, ...) {fprintf(stderr, "WARN %s:%d " _msg "\n", __FILE__, __LINE__, ##__VA_ARGS__); if (kls_ut_log_file_ptr) fprintf(kls_ut_log_file_ptr, "WARN %s:%d " _msg "\n", __FILE__, __LINE__, ##__VA_ARGS__);}
+#define LOGE(_msg, ...) {fprintf(stderr, "ERROR %s:%d " _msg "\n", __FILE__, __LINE__, ##__VA_ARGS__); if (kls_ut_log_file_ptr) fprintf(kls_ut_log_file_ptr, "ERROR %s:%d " _msg "\n", __FILE__, __LINE__, ##__VA_ARGS__);}
 
 #define KLS_CHECK(_expr, _exit_code, _msg, ...) if (!(_expr)) { LOGE("check fail: " _msg, ##__VA_ARGS__); exit(_exit_code); }
 #define KLS_ASSERT(_expr, _msg, ...) KLS_CHECK(_expr, KLS_ASSERT_FAIL, _msg, ##__VA_ARGS__)
