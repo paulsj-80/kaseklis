@@ -38,7 +38,7 @@ void kaseklis_flags(const char *name,
                       ignored_flag);
         PATH_POSTPRINT_CHECK(path, name, rc);
 
-        *is_ignored = opendir(path) ? 1 : 0;
+        *is_ignored = access(path, F_OK) == 0 ? 1 : 0;
     }
     closedir(dir);
 }
