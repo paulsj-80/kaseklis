@@ -452,7 +452,14 @@ void kls_st_dump_index_for(struct t_storage_context* sc,
                 printf("Binary file %s matches\n", fname);
             else
             {
-                find_word_in(sc, fname, word0);
+                if (access(fname, F_OK) == 0)
+                {
+                    find_word_in(sc, fname, word0);
+                }
+                else
+                {
+                    LOGW("file doesn't exist, but is referred %s", fname);
+                }
             }
         }
         
