@@ -16,7 +16,10 @@ cd src && make
 ```
 
 ### Installing
-Put kaseklis binary on the PATH.
+```
+make
+sudo make install
+```
 
 ### Indexing
 - cd to folder you want to index
@@ -27,4 +30,8 @@ kaseklis index
 ### Retrieving
 ```
 kaseklis get word_I_am_looking_for
+```
+or (if shortcut is installed)
+```
+kget word_I_am_looking_for
 ```
