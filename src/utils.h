@@ -89,6 +89,9 @@ bool kls_ut_is_word(char* w);
 extern uint64_t allocated;
 extern uint64_t peak_allocated;
 
+extern int not_letter_or_number[256];
+extern int is_letter[256];
+
 // no safety checks; use them only where it makes sense for collecting
 // stats and ensuring memory is not overfilled
 char* kls_ut_malloc(size_t size);

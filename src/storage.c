@@ -7,7 +7,6 @@
 #include "htable.h"
 #include "exit_codes.h"
 
-
 // KLS03005
 void get_occ_fname(char* buff, t_occ_file_id num, char* kls_dir)
 {
@@ -291,31 +290,23 @@ void read_fd0(char* data,
 }
 
 // KLS06001
-uint64_t print_line(char* data, uint64_t curr_index, 
-                    uint64_t line_start, 
-                    char* fname, uint32_t line_number,
-                    char* prefix)
+void print_line(char* data, uint64_t curr_index, 
+                uint64_t line_start, 
+                char* fname, uint32_t line_number,
+                char* prefix)
 {
-    uint64_t res = 0;
-    uint64_t line_len = curr_index - line_start;
+    uint64_t line_len = curr_index - line_start + 1;
     if (line_len > MAX_DISPLAYABLE_LINE_LENGTH)
     {
         // KLS06002, KLS06006, KLS06005
         printf(YEL "LONG" RESET " ./%s%s:%u\n", prefix, fname, line_number);
-        res++;
     }
     else
     {
         char* line = data + line_start;
-        char ll[MAX_DISPLAYABLE_LINE_LENGTH + 1];
-        strncpy(ll, line, line_len);
-        ll[line_len] = 0;
-        if (line_len > 1)
-            res++;
         // KLS06006, KLS06005
-        printf(GRN "./%s%s:%u " RESET "%s\n", prefix, fname, line_number, ll);
+        printf(GRN "./%s%s:%u " RESET "%.*s\n", prefix, fname, line_number, (int)line_len, line);
     }
-    return res;
 }
 
 void find_word_in(struct t_storage_context* sc,
@@ -323,82 +314,60 @@ void find_word_in(struct t_storage_context* sc,
 {
     uint64_t size;
     char* data = kls_ut_load_file(fname, &size);
-
     if (size == 0)
         return;
 
     int wlen = strlen(word);
-    // 0: searching for word
-    // 1: word found, looking for line end
-    int state = 0;
-    int good_char_count = 0;
     uint32_t line_number = 1;
     uint64_t line_start = 0;
-    uint64_t i;
-    uint64_t results_printed = 0;
-    bool prev_was_letter = 0;
+    uint64_t i = 0;
 
-    for (i = 0; i < size; i++)
+    bool wfs = 1;
+    int wpos = 0;
+    while (i < size)
     {
         char c = data[i];
-        switch (state)
+        // KLS02006
+        if (c == '\n')
         {
-        case 0:
-            {                
-                if ((!prev_was_letter || good_char_count > 0) && 
-                    c == word[good_char_count])
-                {
-                    good_char_count++;
-
-                    if (good_char_count == wlen &&
-                        (i == size - 1 ||
-                         (!kls_ut_is_letter(data[i + 1]) && 
-                         !kls_ut_is_number(data[i + 1]))))
-                        state = 1;
-                } 
-                else
-                {
-                    good_char_count = 0;
-
-                    // KLS02006
-                    if (c == '\n') 
-                    {
-                        line_start = i + 1;
-                        line_number++;
-                    }
-                }
-
-                prev_was_letter = kls_ut_is_letter(c) || 
-                    (good_char_count > 0 && kls_ut_is_number(c));
-                break;
-            }
-        case 1:
-            {
-                // KLS02006
-                if (c == '\n')
-                {
-                    results_printed += print_line(data, i, line_start, 
-                                                  fname, line_number,
-                                                  sc->output_file_prefix);
-                    line_start = i + 1;
-                    line_number++;
-                    good_char_count = 0;
-                    state = 0;
-                    prev_was_letter = 0;
-                }
-            
-                break;
-            }
+            i++;
+            line_number++;
+            wfs = 1;
+            line_start = i;
+            continue;
         }
+        if (wfs && c == word[0])
+        {
+            i++;
+            wpos = 1;
+            while (i < size && wpos < wlen && data[i] == word[wpos])
+            {
+                i++;
+                wpos++;
+            }
+
+            if (wpos == wlen && (i >= size ||
+                                 not_letter_or_number[data[i]]))
+            {
+                while (i < size && data[i] != '\n')
+                {
+                    i++;
+                }
+                print_line(data, i - 1, line_start, 
+                           fname, line_number,
+                           sc->output_file_prefix);
+                i++;
+                line_number++;
+                wfs = 1;
+                line_start = i;
+                continue;
+            }
+            if (i >= size || data[i] == '\n')
+                continue;
+        }
+        wfs = not_letter_or_number[data[i]];
+        i++;
     }
-
-    if (state == 1)
-        results_printed += print_line(data, i, line_start, fname, 
-                                      line_number, 
-                                      sc->output_file_prefix);
-
-    if (!results_printed)
-        LOGW("EMPTY %s", fname);
 
     free(data);
 }
