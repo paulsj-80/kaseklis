@@ -70,19 +70,10 @@ KLS03006 all occurence files are the same size, which allows to calculate
 KLS03007 if .kaseklis folder contains file named "ignored", containing
          subfolder will be ignored silently, both for indexing and 
          retrieval
-KLS03008 if .kaseklis folder is inside a subfolder, relative to root
-         (KLS01002), then that subfolder is considered kaseklis-nested
-KLS03009 kaseklis-nested folder is ignored during indexing (see
-         KLS03007)
-KLS03010 kaseklis-nested folder is processed with a nested operation
-         when retrieving; if it is empty, it is ignored with a warning
-         (see KLS03007)
-KLS03011 all kaseklis-nested folders' names are collected during indexing
-         and stored in nested.txt (one name per line)
 KLS03012 index.log and therefore all stderr output should be kept short,
          for better performance
-KLS03013 nested.txt format is a list of folders; each line has to end
-         with newline character
+KLS03014 if ignored is placed in root folder (relative to search), it is
+         not taken into account
 
 --- data invariances
 KLS04000 one occurence per word in file, even if there are multiple 

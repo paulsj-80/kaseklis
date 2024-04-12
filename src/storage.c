@@ -45,8 +45,6 @@ void kls_st_init(struct t_storage_context* sc, const char* base_dir0,
     sc->files_file1 = kls_ut_concat_fnames(sc->kls_dir, "/files1.dat");
 
     sc->index_log_file = kls_ut_concat_fnames(sc->kls_dir, "/index.log");
-
-    sc->nested_file = kls_ut_concat_fnames(sc->kls_dir, "/nested.txt");
     
     if (purge) 
     {
@@ -56,7 +54,6 @@ void kls_st_init(struct t_storage_context* sc, const char* base_dir0,
         remove(sc->files_file0);
         remove(sc->files_file1);
         remove(sc->index_log_file); // KLS07001
-        remove(sc->nested_file);
         size_t i = 0;
         while (remove_occ_file(i++, sc->kls_dir) == 0);
 
@@ -70,9 +67,6 @@ void kls_st_init(struct t_storage_context* sc, const char* base_dir0,
         sc->files_ptr1 = fopen(sc->files_file1, "w");
         KLS_IO_CHECK(sc->files_ptr1, "cannot open for write %s", 
                      sc->files_file1);
-        sc->nested_ptr = fopen(sc->nested_file, "w");
-        KLS_IO_CHECK(sc->nested_ptr, "cannot open for write %s", 
-                     sc->nested_file);
 
         sc->ht = (struct t_kls_ht_context*)kls_ut_malloc(
                          sizeof(struct t_kls_ht_context));
@@ -135,7 +129,6 @@ void kls_st_finish(struct t_storage_context* sc, bool sync_to_hdd)
     DO_FREE(files_file0);
     DO_FREE(files_file1);
     DO_FREE(index_log_file);
-    DO_FREE(nested_file);
 
     KLS_IO_CHECK(chdir(sc->prev_cwd) == 0, 
                  "could not chdir to %s", sc->prev_cwd);
@@ -210,56 +203,6 @@ void kls_st_nested_ignored(struct t_storage_context* sc,
     fwrite(&separator, 1, 1, sc->nested_ptr);
     static const char newline = '\n';
     fwrite(&newline, 1, 1, sc->nested_ptr);
-}
-
-void dump_nested_for(struct t_storage_context* sc, const char* word)
-{
-    FILE* f = fopen(sc->nested_file, "r");
-
-    KLS_IO_CHECK(f, "cannot open for read %s", sc->nested_file);
-
-    char buff[FNAME_LEN + 1];
-    memset(buff, 0, FNAME_LEN + 1);
-    int buff_pos = 0;
-
-    while (1)
-    {
-        char c;
-        size_t cr = fread(&c, 1, 1, f);
-        KLS_CHECK(cr || !buff_pos, 
-                  BAD_FILE_OBJECT,
-                  "file is not properly formed %s", sc->nested_file);
-        if (feof(f))
-            break;
-
-        KLS_IO_CHECK(cr, "cannot read %s", sc->nested_file);
-        KLS_CHECK(c, BAD_FILE_OBJECT, "bad character in %s",
-                  sc->nested_file)
-
-        if (c == '\n')
-        {
-            if (buff_pos > 0)
-            {
-                buff[buff_pos] = 0;
-                // KLS03010
-                struct t_storage_context sc2;
-                kls_st_init(&sc2, buff, buff + sc->base_dir_len + 1, 0);
-                kls_st_dump_index_for(&sc2, word);
-                kls_st_finish(&sc2, 0);
-
-                buff_pos = 0;
-            }
-        }
-        else
-        {
-            buff[buff_pos++] = c;
-            KLS_CHECK(buff_pos < FNAME_LEN, 
-                      KLS_LIMIT_EXCEEDED,
-                      "nested folder name too long %s", buff);
-        }
-    }
-
-    fclose(f);
 }
 
 void read_fd0(char* data,
@@ -376,7 +319,6 @@ void find_word_in(struct t_storage_context* sc,
 void kls_st_dump_index_for(struct t_storage_context* sc, 
                            const char* word0)
 {
-
     char word[MAX_WORD_LEN + 1];
     memset(word, 0, MAX_WORD_LEN + 1);
     strncpy(word, word0, MAX_WORD_LEN);
@@ -384,12 +326,11 @@ void kls_st_dump_index_for(struct t_storage_context* sc,
     if (strlen(word0) > MAX_WORD_LEN)
         LOGW("too long word, truncating for index-search to %s", word);
 
-    dump_nested_for(sc, word);
-
     t_occ_id occ_pos;
     if (!kls_ht_get_occ_id(word, sc->words_file0, sc->words_file1, 
                            &occ_pos, HT_SIZE))
         return;
+
     bool has_occ_file = 0;
     t_occ_file_id curr_occ_file_index;
 
