@@ -117,7 +117,9 @@ KLS05011 words with size less than 2 are ignored, both when indexing and
 KLS05012 file absolute name size cannot exceed 4096
 KLS05013 by default, all folders starting with "." are ignored (not 
          traversed) when indexing
-
+KLS05014 broken symlinks have to be reported as warnings, without stopping
+         indexing process
+         
 --- output format when retrieving
 KLS06000 for binary files it is just notification, that file contains a
          word in question (KLS01005)

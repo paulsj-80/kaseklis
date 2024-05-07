@@ -54,7 +54,11 @@ char* kls_ut_load_file(const char* name, uint64_t* fs)
 uint64_t kls_ut_file_size(const char* name)
 {
     FILE* f = fopen(name, "r");
-    KLS_IO_CHECK(f, "couldn't open %s", name);
+    // KLS05014    
+    if (!f) {
+        LOGW("couldn't open %s", name);
+        return 0;
+    }
 
     fseek(f, 0, SEEK_END);
     uint64_t sz = ftell(f);

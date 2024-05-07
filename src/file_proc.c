@@ -133,12 +133,20 @@ void finish_file_processor(struct t_file_processor* fp)
 
 void kls_fp_process(struct t_storage_context* sc, const char* fname)
 {
+    uint64_t fs = kls_ut_file_size(fname);
     // KLS01010
 
-    if (kls_ut_file_size(fname) > MAX_INDEXABLE_FILE_SIZE)
+    if (fs > MAX_INDEXABLE_FILE_SIZE)
     {
         // KLS01006, KLS02008, KLS05010
         LOGI("too big %s", fname);
+        return;
+    }
+
+    // KLS05014
+    if (fs == 0)
+    {
+        LOGI("zero size %s", fname);
         return;
     }
 
